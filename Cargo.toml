@@ -1,0 +1,60 @@
+[package]
+name = "orgwise"
+version = "0.0.0"
+authors = ["PoiScript <poiscript@gmail.com>"]
+repository = "https://github.com/PoiScript/orgwise"
+edition = "2021"
+license = "MIT"
+description = "Language server for org-mode files, builtin with orgize."
+exclude = ["editors", "pkg"]
+
+[dependencies]
+orgize = { git = "https://github.com/PoiScript/orgize", branch = "v0.10", features = [
+    "chrono",
+] }
+dashmap = { version = "5.1", features = ["raw-api"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+anyhow = "1.0"
+resolve-path = "0.1"
+memchr = "2.6"
+lsp-types = { version = "0.94.1", features = ["proposed"] }
+url = { version = "2.5.0", features = ["serde"] }
+jetscii = "0.5.3"
+nom = "7.1.3"
+chrono = { version = "0.4.34", features = ["serde"] }
+
+wasm-bindgen = { version = "0.2.89", features = ["std"], optional = true }
+serde-wasm-bindgen = { version = "0.6.3", optional = true }
+wasm-bindgen-futures = { version = "0.4.39", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+tokio = { version = "1.35.1", features = ["fs", "full"], optional = true }
+tower-lsp = { version = "0.20.0", features = ["proposed"], optional = true }
+tempfile = { version = "3.8.1", optional = true }
+dirs = { version = "5.0.1", optional = true }
+clap = { version = "4.4.11", features = ["derive"] }
+clap-verbosity-flag = "2.1.0"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3", features = ["fmt"] }
+web-sys = { version = "0.3.68", features = ["console"] }
+
+[features]
+default = ["wasm", "tower"]
+wasm = [
+    "wasm-bindgen",
+    "serde-wasm-bindgen",
+    "wasm-bindgen-futures",
+    "console_error_panic_hook",
+]
+tower = ["tokio", "tower-lsp", "tempfile", "dirs"]
+
+[lib]
+required-features = ["wasm"]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+default = true
+name = "orgwise"
+path = "src/main.rs"

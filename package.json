@@ -1,0 +1,31 @@
+{
+  "name": "orgwise",
+  "private": true,
+  "dependencies": {
+    "@radix-ui/react-checkbox": "^1.0.4",
+    "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-slot": "^1.0.2",
+    "@tanstack/react-table": "^8.13.2",
+    "@types/node": "~16.11.68",
+    "@types/react-dom": "^18.2.19",
+    "@types/react": "^18.2.61",
+    "@types/vscode": "~1.75.1",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@vscode/vsce": "^2.23.0",
+    "autoprefixer": "^10.4.17",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "esbuild": "^0.19.12",
+    "lucide-react": "^0.344.0",
+    "postcss": "^8.4.35",
+    "prettier": "^3.2.5",
+    "react-dom": "^18.2.0",
+    "react": "^18.2.0",
+    "tailwind-merge": "^2.2.1",
+    "tailwindcss-animate": "^1.0.7",
+    "tailwindcss": "^3.4.1",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.1"
+  }
+}
