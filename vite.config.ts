@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
   server: {
     open: "./web/index.html",
+    port: 4200,
   },
   build: {
     emptyOutDir: false,

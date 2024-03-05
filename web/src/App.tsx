@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+
 import { DataTableDemo } from "./Table";
-import { Button } from "./components/ui/button";
+import fetch from "./fetch";
 
 export type SearchResult = {
   title: string;
@@ -10,56 +12,23 @@ export type SearchResult = {
   priority?: string;
   tags: string[];
   keyword?: string;
+  keyword_type?: string;
   deadline?: string;
   scheduled?: string;
   closed?: string;
 };
 
-declare const acquireVsCodeApi: () => any;
-
-let fetchId = 0;
-let vscode: any = null;
-
-const fetch = <T, A = any>(command: string, argument: A): Promise<T> => {
-  vscode ||= acquireVsCodeApi();
-
-  return new Promise((resolve) => {
-    const id = ++fetchId;
-
-    window.addEventListener("message", (ev) => {
-      if (ev.data.id == id) {
-        resolve(ev.data.result);
-      }
-    });
-
-    vscode.postMessage({ id, command, arguments: [argument] });
-  });
-};
-
 const App: React.FC<{}> = () => {
-  const [data, setData] = useState<SearchResult[]>([
-    {
-      closed: null,
-      deadline: null,
-      keyword: "TODO",
-      level: 1,
-      offset: 0,
-      priority: null,
-      scheduled: null,
-      tags: [],
-      title: "*abc* /a/",
-      url: "",
-    },
-  ]);
+  const [data, setData] = useState<SearchResult[]>([]);
 
   const fetchHeadline = () => {
-    fetch<SearchResult[]>("orgwise.search-headline", {})
+    fetch<SearchResult[]>("search-headline", {})
       .then(setData)
       .catch(console.error);
   };
 
   useEffect(() => {
-    // fetchHeadline();
+    fetchHeadline();
   }, []);
 
   return (
