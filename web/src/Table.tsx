@@ -10,7 +10,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown } from "lucide-react";
+import { ChevronDown, Tag } from "lucide-react";
 import React, { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -36,27 +36,44 @@ import { SearchResult } from "./App";
 export const columns: ColumnDef<SearchResult>[] = [
   {
     accessorKey: "level",
-    header: () => <div>Level</div>,
+    header: "Level",
+    maxSize: 20,
+    enableResizing: false,
     cell: ({ row }) => <div>{row.getValue("level")}</div>,
-  },
-  {
-    accessorKey: "keyword",
-    header: ({ column }) => (
-      <Button
-        className="p-0"
-        variant="ghost"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-      >
-        Keyword
-        <ArrowUpDown className="ml-2 h-4 w-4" />
-      </Button>
-    ),
-    cell: ({ row }) => <Badge>{row.getValue("keyword")}</Badge>,
   },
   {
     accessorKey: "title",
     header: "Title",
-    cell: ({ row }) => <div>{row.getValue("title")}</div>,
+    cell: ({ row }) => (
+      <div className="flex gap-2">
+        {typeof row.original.keyword === "string" && (
+          <Badge
+            variant={
+              row.original.keyword_type === "TODO" ? "destructive" : "default"
+            }
+          >
+            {row.original.keyword}
+          </Badge>
+        )}
+
+        {typeof row.original.priority === "string" && (
+          <Badge variant="secondary">#{row.original.priority}</Badge>
+        )}
+
+        <div>{row.getValue("title")}</div>
+
+        {Array.isArray(row.original.tags) && (
+          <>
+            {row.original.tags.map((tag) => (
+              <div className="rounded border px-2.5 py-0.5 text-xs font-semibold text-sm items-center leading-none inline-flex gap-1">
+                <Tag size={12} />
+                {tag}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    ),
   },
 ];
 
@@ -131,7 +148,10 @@ export const DataTableDemo: React.FC<Props> = ({ data }) => {
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      style={{ maxWidth: header.getSize() + "px" }}
+                      key={header.id}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -152,7 +172,10 @@ export const DataTableDemo: React.FC<Props> = ({ data }) => {
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      style={{ maxWidth: cell.column.getSize() + "px" }}
+                      key={cell.id}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
