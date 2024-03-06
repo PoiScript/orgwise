@@ -92,10 +92,16 @@ where
                 let mut results = vec![];
                 let option = serde_json::from_value(value)?;
                 for item in self.documents.iter() {
+                    let doc = item.value();
                     results.append(&mut crate::common::search_heading::search(
-                        &option,
-                        &item.value().org,
+                        &option, &doc.org,
                     ));
+                    for r in results.iter_mut() {
+                        let mut url = item.key().clone();
+                        let line_number = (doc.line_of(r.offset) + 1u32).to_string();
+                        url.set_fragment(Some(&line_number));
+                        r.url = url.to_string();
+                    }
                 }
                 return Ok(serde_json::to_value(results)?);
             }

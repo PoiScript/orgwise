@@ -1,6 +1,9 @@
+mod api;
 mod cli;
 mod common;
 mod lsp;
+
+use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, LevelFilter as CLevelFilter, Verbosity};
@@ -35,6 +38,10 @@ enum Command {
     #[clap(name = "fmt")]
     Format(cli::fmt::Command),
 
+    /// Start api server
+    #[clap(name = "api")]
+    ApiServer { path: Vec<PathBuf> },
+
     /// Start language server
     #[clap(name = "lsp")]
     LanguageServer,
@@ -63,6 +70,7 @@ async fn main() -> anyhow::Result<()> {
         Command::Detangle(cmd) => cmd.run().await,
         Command::ExecuteSrcBlock(cmd) => cmd.run().await,
         Command::Format(cmd) => cmd.run().await,
+        Command::ApiServer { path } => api::start(path).await,
         Command::LanguageServer => {
             cli::lsp::start().await;
             Ok(())

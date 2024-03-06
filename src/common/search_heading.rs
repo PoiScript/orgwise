@@ -1,5 +1,6 @@
 use chrono::{DateTime, TimeZone, Utc};
 use orgize::{
+    ast::TodoType,
     export::{Container, Event, TraversalContext, Traverser},
     rowan::ast::AstNode,
     Org,
@@ -14,16 +15,17 @@ pub struct SearchOption {
 
 #[derive(Serialize)]
 pub struct Result {
-    title: String,
-    url: String,
-    offset: usize,
-    level: usize,
-    priority: Option<String>,
-    tags: Vec<String>,
-    keyword: Option<String>,
-    deadline: Option<DateTime<Utc>>,
-    scheduled: Option<DateTime<Utc>>,
-    closed: Option<DateTime<Utc>>,
+    pub title: String,
+    pub url: String,
+    pub offset: u32,
+    pub level: usize,
+    pub priority: Option<String>,
+    pub tags: Vec<String>,
+    pub keyword: Option<String>,
+    pub keyword_type: Option<&'static str>,
+    pub deadline: Option<DateTime<Utc>>,
+    pub scheduled: Option<DateTime<Utc>>,
+    pub closed: Option<DateTime<Utc>>,
 }
 
 pub fn search(option: &SearchOption, org: &Org) -> Vec<Result> {
@@ -96,6 +98,10 @@ impl<'a> Traverser for SearchTraverser<'a> {
             priority: headline.priority().map(|t| t.to_string()),
             tags: headline.tags().map(|t| t.to_string()).collect(),
             keyword: headline.todo_keyword().map(|t| t.to_string()),
+            keyword_type: headline.todo_type().map(|t| match t {
+                TodoType::Todo => "TODO",
+                TodoType::Done => "DONE",
+            }),
         })
     }
 }
