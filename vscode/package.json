@@ -24,23 +24,23 @@
     "url": "https://github.com/PoiScript/orgwise"
   },
   "scripts": {
-    "package": "vsce package -o orgwise.vsix --skip-license --no-dependencies"
+    "package": "../node_modules/.bin/vsce package -o orgwise.vsix --skip-license --no-dependencies"
   },
   "main": "./dist/node.js",
   "browser": "./dist/browser.js",
   "contributes": {
     "commands": [
       {
-        "command": "orgwise.syntax-tree",
-        "title": "Orgwise (debug): Show org syntax tree"
+        "command": "orgwise.syntax-tree-ui",
+        "title": "Orgwise (debug): Show Org Syntax Tree"
       },
       {
-        "command": "orgwise.preview-html",
-        "title": "Orgwise: Preview in HTML"
+        "command": "orgwise.preview-html-ui",
+        "title": "Orgwise: Preview In HTML"
       },
       {
-        "command": "orgwise.show-orgwise",
-        "title": "Orgwise: Show panel"
+        "command": "orgwise.web-panel-ui",
+        "title": "Orgwise: Show Web Panel"
       }
     ],
     "languages": [

@@ -18,24 +18,24 @@ export default class SyntaxTreeProvider implements TextDocumentContentProvider {
     // register document link provider for scheme `references`
     const providerRegistrations = workspace.registerTextDocumentContentProvider(
       SyntaxTreeProvider.scheme,
-      provider,
+      provider
     );
 
     // register command that crafts an uri with the `references` scheme,
     // open the dynamic document, and shows it in the next editor
     const commandRegistration = commands.registerTextEditorCommand(
-      "orgwise.syntax-tree",
+      "orgwise.syntax-tree-ui",
       (editor) => {
         return workspace
           .openTextDocument(encode(editor.document.uri))
           .then((doc) => window.showTextDocument(doc, editor.viewColumn! + 1));
-      },
+      }
     );
 
     return Disposable.from(
       provider,
       commandRegistration,
-      providerRegistrations,
+      providerRegistrations
     );
   }
 

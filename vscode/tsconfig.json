@@ -5,8 +5,6 @@
     "lib": ["ES2019", "WebWorker", "WebWorker.ImportScripts"],
     "outDir": "../dist",
     "sourceMap": true,
-    "jsx": "preserve",
-    "jsxImportSource": "solid-js",
     "resolveJsonModule": true,
     "esModuleInterop": true
   },

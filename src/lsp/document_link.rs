@@ -5,66 +5,62 @@ use orgize::{
     rowan::ast::{support, AstNode},
     SyntaxKind,
 };
-use crate::common::header_argument;
 use serde_json::Value;
 
-use super::{org_document::OrgDocument, FileSystem, LanguageClient, LanguageServerBase, Process};
+use crate::base::OrgDocument;
+use crate::base::Server;
+use crate::command::utils::{header_argument, headline_slug};
 
-impl<E> LanguageServerBase<E>
-where
-    E: FileSystem<Location = Url> + LanguageClient + Process,
-{
-    pub fn document_link(&self, params: DocumentLinkParams) -> Option<Vec<DocumentLink>> {
-        let doc = self.documents.get(&params.text_document.uri)?;
+pub fn document_link<S: Server>(s: &S, params: DocumentLinkParams) -> Option<Vec<DocumentLink>> {
+    let doc = s.documents().get(&params.text_document.uri)?;
 
-        let mut traverser = DocumentLinkTraverser {
-            doc: &doc,
-            links: vec![],
-            base: params.text_document.uri,
-        };
+    let mut traverser = DocumentLinkTraverser {
+        doc: &doc,
+        links: vec![],
+        base: params.text_document.uri,
+    };
 
-        doc.traverse(&mut traverser);
+    doc.traverse(&mut traverser);
 
-        Some(traverser.links)
-    }
+    Some(traverser.links)
+}
 
-    pub fn document_link_resolve(&self, mut params: DocumentLink) -> DocumentLink {
-        if params.target.is_some() {
-            return params;
-        }
-
-        if let Some(data) = params.data.take() {
-            params.target = self.resolve(data);
-        }
-
+pub fn document_link_resolve<S: Server>(s: &S, mut params: DocumentLink) -> DocumentLink {
+    if params.target.is_some() {
         return params;
     }
 
-    fn resolve(&self, data: Value) -> Option<Url> {
-        let (typ, url, id): (String, Url, String) = serde_json::from_value(data).ok()?;
+    if let Some(data) = params.data.take() {
+        params.target = resolve(s, data);
+    }
 
-        match (typ.as_str(), url, id) {
-            ("headline-id", mut url, id) => {
-                let doc = self.documents.get(&url)?;
+    params
+}
 
-                let mut h = HeadlineIdTraverser {
-                    id: id.to_string(),
-                    offset: None,
-                };
+fn resolve<S: Server>(s: &S, data: Value) -> Option<Url> {
+    let (typ, url, id): (String, Url, String) = serde_json::from_value(data).ok()?;
 
-                doc.traverse(&mut h);
+    match (typ.as_str(), url, id) {
+        ("headline-id", mut url, id) => {
+            let doc = s.documents().get(&url)?;
 
-                if let Some(offset) = h.offset.take() {
-                    let line = doc.line_of(offset);
-                    // results is zero-based
-                    url.set_fragment(Some(&(line + 1).to_string()));
-                }
+            let mut h = HeadlineIdTraverser {
+                id: id.to_string(),
+                offset: None,
+            };
 
-                Some(url)
+            doc.traverse(&mut h);
+
+            if let Some(offset) = h.offset.take() {
+                let line = doc.line_of(offset);
+                // results is zero-based
+                url.set_fragment(Some(&(line + 1).to_string()));
             }
-            ("resolve", base, path) => self.env.resolve_in(&path, &base).ok(),
-            _ => None,
+
+            Some(url)
         }
+        ("resolve", base, path) => s.resolve_in(&path, &base).ok(),
+        _ => None,
     }
 }
 
@@ -127,10 +123,7 @@ impl<'a> DocumentLinkTraverser<'a> {
         };
 
         Some(DocumentLink {
-            range: self.doc.range_of2(
-                path.text_range().start().into(),
-                path.text_range().end().into(),
-            ),
+            range: self.doc.range_of(path.text_range()),
             tooltip: Some("Jump to link".into()),
             target,
             data,
@@ -176,11 +169,9 @@ struct HeadlineIdTraverser {
 impl Traverser for HeadlineIdTraverser {
     fn event(&mut self, event: Event, ctx: &mut TraversalContext) {
         match event {
-            Event::Enter(Container::Headline(headline))
-                if crate::common::headline_slug(&headline) == self.id =>
-            {
-                self.offset = Some(headline.begin());
-                return ctx.stop();
+            Event::Enter(Container::Headline(headline)) if headline_slug(&headline) == self.id => {
+                self.offset = Some(headline.start().into());
+                ctx.stop()
             }
             Event::Enter(Container::Section(_)) => ctx.skip(),
             _ => {}

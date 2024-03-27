@@ -5,37 +5,31 @@ use orgize::{
     Org, SyntaxKind, SyntaxToken,
 };
 
-use super::{
-    org_document::OrgDocument, FileSystem, LanguageClient, LanguageServerBase, Process,
-};
+use crate::base::OrgDocument;
+use crate::base::Server;
 
-impl<E> LanguageServerBase<E>
-where
-    E: FileSystem + LanguageClient + Process,
-{
-    pub fn references(&self, params: ReferenceParams) -> Option<Vec<Location>> {
-        let doc = self
-            .documents
-            .get(&params.text_document_position.text_document.uri)?;
+pub fn references<S: Server>(s: &S, params: ReferenceParams) -> Option<Vec<Location>> {
+    let doc = s
+        .documents()
+        .get(&params.text_document_position.text_document.uri)?;
 
-        let offset = doc.offset_of(params.text_document_position.position);
+    let offset = doc.offset_of(params.text_document_position.position);
 
-        let symbol = locate_symbol(&doc.org, offset)?;
+    let symbol = locate_symbol(&doc.org, offset)?;
 
-        let mut locations = vec![];
+    let mut locations = vec![];
 
-        for entry in &self.documents {
-            let mut traverser = ReferencesTraverser {
-                doc: &entry.value(),
-                locations: &mut locations,
-                symbol: &symbol,
-                url: &entry.key(),
-            };
-            entry.value().traverse(&mut traverser);
-        }
-
-        Some(locations)
+    for entry in s.documents().iter() {
+        let mut traverser = ReferencesTraverser {
+            doc: entry.value(),
+            locations: &mut locations,
+            symbol: &symbol,
+            url: entry.key(),
+        };
+        entry.value().traverse(&mut traverser);
     }
+
+    Some(locations)
 }
 
 struct ReferencesTraverser<'a> {

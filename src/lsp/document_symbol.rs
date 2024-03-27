@@ -3,30 +3,27 @@
 use lsp_types::*;
 use orgize::{
     export::{Container, Event, TraversalContext, Traverser},
-    rowan::ast::AstNode,
+    rowan::{ast::AstNode, TextSize},
     SyntaxKind,
 };
 
-use super::{
-    org_document::OrgDocument, FileSystem, LanguageClient, LanguageServerBase, Process,
-};
+use crate::base::OrgDocument;
+use crate::base::Server;
 
-impl<E> LanguageServerBase<E>
-where
-    E: FileSystem + LanguageClient + Process,
-{
-    pub fn document_symbol(&self, params: DocumentSymbolParams) -> Option<DocumentSymbolResponse> {
-        let doc = self.documents.get(&params.text_document.uri)?;
+pub fn document_symbol<S: Server>(
+    s: &S,
+    params: DocumentSymbolParams,
+) -> Option<DocumentSymbolResponse> {
+    let doc = s.documents().get(&params.text_document.uri)?;
 
-        let mut t = DocumentSymbolTraverser {
-            doc: &doc,
-            stack: vec![],
-            symbols: vec![],
-        };
+    let mut t = DocumentSymbolTraverser {
+        doc: &doc,
+        stack: vec![],
+        symbols: vec![],
+    };
 
-        doc.traverse(&mut t);
-        Some(DocumentSymbolResponse::Nested(t.symbols))
-    }
+    doc.traverse(&mut t);
+    Some(DocumentSymbolResponse::Nested(t.symbols))
 }
 
 struct DocumentSymbolTraverser<'a> {
@@ -57,8 +54,8 @@ impl<'a> Traverser for DocumentSymbolTraverser<'a> {
                     .map(|n| n.to_string())
                     .collect::<String>();
 
-                let start = headline.begin();
-                let end = headline.end() - 1;
+                let start = headline.start();
+                let end = headline.end() - TextSize::new(1);
 
                 self.stack.push(symbols.len());
                 symbols.push(DocumentSymbol {

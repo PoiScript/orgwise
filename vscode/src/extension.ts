@@ -11,9 +11,9 @@ import {
   TransportKind,
 } from "vscode-languageclient/node";
 
-import { register } from "./preview-html";
-import { register as register_ } from "./orgwise";
-import SyntaxTreeProvider from "./syntax-tree";
+import PreviewHtml from "./preview-html";
+import SyntaxTree from "./syntax-tree";
+import WebPanel from "./web-panel";
 
 declare const WEB_EXTENSION: boolean;
 
@@ -35,14 +35,14 @@ export function activate(context: vscode.ExtensionContext) {
   if (WEB_EXTENSION) {
     const workerUrl = vscode.Uri.joinPath(
       context.extensionUri,
-      "./dist/lsp-worker.js",
+      "./dist/lsp-worker.js"
     );
 
     client = new BrowserLanguageClient(
       "orgwise",
       "Orgwise",
       clientOptions,
-      new Worker(workerUrl.toString()),
+      new Worker(workerUrl.toString())
     );
   } else if (configuration.get("orgwise.useCli")) {
     const run: Executable = {
@@ -59,12 +59,12 @@ export function activate(context: vscode.ExtensionContext) {
       "orgwise",
       "Orgwise",
       serverOptions,
-      clientOptions,
+      clientOptions
     );
   } else {
     const serverUrl = vscode.Uri.joinPath(
       context.extensionUri,
-      "./dist/lsp-server.js",
+      "./dist/lsp-server.js"
     );
 
     const run: NodeModule = {
@@ -81,16 +81,16 @@ export function activate(context: vscode.ExtensionContext) {
       "orgwise",
       "Orgwise",
       serverOptions,
-      clientOptions,
+      clientOptions
     );
   }
 
   // Start the client. This will also launch the server
   client.start();
 
-  context.subscriptions.push(SyntaxTreeProvider.register());
-  register(context);
-  register_(context);
+  context.subscriptions.push(SyntaxTree.register());
+  context.subscriptions.push(PreviewHtml.register(context));
+  context.subscriptions.push(WebPanel.register(context));
 }
 
 export function deactivate(): Thenable<void> | undefined {

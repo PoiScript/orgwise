@@ -1,13 +1,17 @@
-mod api;
+mod base;
 mod cli;
-mod common;
+mod command;
 mod lsp;
 
-use std::path::PathBuf;
+#[cfg(test)]
+mod test;
 
-use clap::{Parser, Subcommand};
-use clap_verbosity_flag::{InfoLevel, LevelFilter as CLevelFilter, Verbosity};
-use tracing::level_filters::LevelFilter;
+use clap::{
+    builder::styling::{AnsiColor, Color, Style},
+    Parser, Subcommand,
+};
+use clap_verbosity_flag::{InfoLevel, Verbosity};
+use log::{Level, LevelFilter, Log, Metadata, Record};
 
 /// Command line utility for org-mode files
 #[derive(Debug, Parser)]
@@ -40,7 +44,7 @@ enum Command {
 
     /// Start api server
     #[clap(name = "api")]
-    ApiServer { path: Vec<PathBuf> },
+    ApiServer(cli::api_server::Command),
 
     /// Start language server
     #[clap(name = "lsp")]
@@ -51,29 +55,50 @@ enum Command {
 async fn main() -> anyhow::Result<()> {
     let parsed = App::parse();
 
-    tracing_subscriber::fmt()
-        .with_max_level(match parsed.verbose.log_level_filter() {
-            CLevelFilter::Off => LevelFilter::OFF,
-            CLevelFilter::Error => LevelFilter::ERROR,
-            CLevelFilter::Warn => LevelFilter::WARN,
-            CLevelFilter::Info => LevelFilter::INFO,
-            CLevelFilter::Debug => LevelFilter::DEBUG,
-            CLevelFilter::Trace => LevelFilter::TRACE,
-        })
-        .without_time()
-        .with_file(false)
-        .with_line_number(false)
-        .init();
+    let level = parsed.verbose.log_level_filter();
+    log::set_boxed_logger(Box::new(Logger { level })).unwrap();
+    log::set_max_level(level);
 
     match parsed.command {
         Command::Tangle(cmd) => cmd.run().await,
         Command::Detangle(cmd) => cmd.run().await,
         Command::ExecuteSrcBlock(cmd) => cmd.run().await,
         Command::Format(cmd) => cmd.run().await,
-        Command::ApiServer { path } => api::start(path).await,
-        Command::LanguageServer => {
-            cli::lsp::start().await;
-            Ok(())
+        Command::ApiServer(cmd) => cmd.run().await,
+        Command::LanguageServer => cli::lsp_server::start().await,
+    }
+}
+
+struct Logger {
+    level: LevelFilter,
+}
+
+impl Log for Logger {
+    fn enabled(&self, metadata: &Metadata) -> bool {
+        metadata.level().to_level_filter() <= self.level
+    }
+
+    fn log(&self, record: &Record) {
+        if self.enabled(record.metadata()) {
+            let color = match record.level() {
+                Level::Error => AnsiColor::Red,
+                Level::Warn => AnsiColor::Yellow,
+                Level::Info => AnsiColor::Cyan,
+                Level::Debug => AnsiColor::Green,
+                Level::Trace => AnsiColor::White,
+            };
+
+            let style = Style::new().fg_color(Color::Ansi(color).into());
+
+            println!(
+                "{}{:<5}{} {}",
+                style.render(),
+                &record.level(),
+                style.render_reset(),
+                record.args()
+            )
         }
     }
+
+    fn flush(&self) {}
 }

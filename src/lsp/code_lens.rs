@@ -3,34 +3,28 @@ use orgize::{
     export::{Container, Event, TraversalContext, Traverser},
     rowan::ast::AstNode,
 };
-use crate::common::{header_argument, property_drawer, property_keyword};
 
-use super::{
-    commands::OrgwiseCommand, org_document::OrgDocument, FileSystem, LanguageClient,
-    LanguageServerBase, Process,
-};
+use crate::base::OrgDocument;
+use crate::base::Server;
+use crate::command::utils::{header_argument, property_drawer, property_keyword};
+use crate::command::{HeadlineToc, SrcBlockDetangle, SrcBlockExecute, SrcBlockTangle};
 
-impl<E> LanguageServerBase<E>
-where
-    E: FileSystem + LanguageClient + Process,
-{
-    pub fn code_lens(&self, params: CodeLensParams) -> Option<Vec<CodeLens>> {
-        let doc = self.documents.get(&params.text_document.uri)?;
+pub fn code_lens<S: Server>(s: &S, params: CodeLensParams) -> Option<Vec<CodeLens>> {
+    let doc = s.documents().get(&params.text_document.uri)?;
 
-        let mut traverser = CodeLensTraverser {
-            url: params.text_document.uri,
-            lens: vec![],
-            doc: &doc,
-        };
+    let mut traverser = CodeLensTraverser {
+        url: params.text_document.uri,
+        lens: vec![],
+        doc: &doc,
+    };
 
-        doc.traverse(&mut traverser);
+    doc.traverse(&mut traverser);
 
-        Some(traverser.lens)
-    }
+    Some(traverser.lens)
+}
 
-    pub fn code_lens_resolve(&self, params: CodeLens) -> CodeLens {
-        params
-    }
+pub fn code_lens_resolve<S: Server>(_: &S, params: CodeLens) -> CodeLens {
+    params
 }
 
 struct CodeLensTraverser<'a> {
@@ -43,7 +37,7 @@ impl<'a> Traverser for CodeLensTraverser<'a> {
     fn event(&mut self, event: Event, ctx: &mut TraversalContext) {
         match event {
             Event::Enter(Container::SourceBlock(block)) => {
-                let start = block.begin();
+                let start = block.start();
 
                 let arg1 = block.parameters().unwrap_or_default();
                 let arg2 = property_drawer(block.syntax()).unwrap_or_default();
@@ -57,7 +51,7 @@ impl<'a> Traverser for CodeLensTraverser<'a> {
                     self.lens.push(CodeLens {
                         range,
                         command: Some(
-                            OrgwiseCommand::SrcBlockExecute {
+                            SrcBlockExecute {
                                 block_offset: start,
                                 url: self.url.clone(),
                             }
@@ -71,7 +65,7 @@ impl<'a> Traverser for CodeLensTraverser<'a> {
                     self.lens.push(CodeLens {
                         range,
                         command: Some(
-                            OrgwiseCommand::SrcBlockTangle {
+                            SrcBlockTangle {
                                 block_offset: start,
                                 url: self.url.clone(),
                             }
@@ -83,7 +77,7 @@ impl<'a> Traverser for CodeLensTraverser<'a> {
                     self.lens.push(CodeLens {
                         range,
                         command: Some(
-                            OrgwiseCommand::SrcBlockDetangle {
+                            SrcBlockDetangle {
                                 block_offset: start,
                                 url: self.url.clone(),
                             }
@@ -97,13 +91,13 @@ impl<'a> Traverser for CodeLensTraverser<'a> {
             }
             Event::Enter(Container::Headline(headline)) => {
                 if headline.tags().any(|t| t.eq_ignore_ascii_case("TOC")) {
-                    let start = headline.begin();
+                    let start = headline.start();
 
                     self.lens.push(CodeLens {
                         range: self.doc.range_of2(start, start),
                         command: Some(
-                            OrgwiseCommand::HeadlineToc {
-                                heading_offset: start,
+                            HeadlineToc {
+                                headline_offset: start,
                                 url: self.url.clone(),
                             }
                             .into(),

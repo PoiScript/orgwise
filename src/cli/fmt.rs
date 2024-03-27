@@ -1,8 +1,9 @@
 use clap::Args;
-use orgize::Org;
 use std::path::PathBuf;
 
-use crate::cli::diff;
+use super::environment::CliServer;
+use crate::base::Server;
+use crate::command::formatting;
 
 #[derive(Debug, Args)]
 pub struct Command {
@@ -14,21 +15,20 @@ pub struct Command {
 
 impl Command {
     pub async fn run(self) -> anyhow::Result<()> {
+        let base = CliServer::new(self.dry_run);
+
         for path in self.path {
-            if !path.exists() {
-                tracing::error!("{:?} is not existed", path);
+            if let Some(url) = base.load_org_file(&path) {
+                let doc = base.documents().get(&url).unwrap();
 
-                let input = tokio::fs::read_to_string(&path).await?;
+                let edits = formatting::formatting(&doc.org);
 
-                let org = Org::parse(&input);
-
-                let patches = crate::common::formatting(&org);
-
-                if self.dry_run {
-                    diff::print(&input, patches);
-                } else {
-                    diff::write_to_file(&input, patches, path)?;
-                }
+                base.apply_edits(
+                    edits
+                        .into_iter()
+                        .map(|(range, content)| (url.clone(), content, range)),
+                )
+                .await?;
             }
         }
 

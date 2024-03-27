@@ -1,36 +1,18 @@
 use lsp_types::*;
 use orgize::{
-    export::{Container, Event, TraversalContext, Traverser},
+    export::{from_fn, Container, Event},
     rowan::ast::AstNode,
     SyntaxKind, SyntaxNode,
 };
 
-use super::{
-    org_document::OrgDocument, FileSystem, LanguageClient, LanguageServerBase, Process,
-};
+use crate::base::Server;
 
-impl<E> LanguageServerBase<E>
-where
-    E: FileSystem + LanguageClient + Process,
-{
-    pub fn folding_range(&self, params: FoldingRangeParams) -> Option<Vec<FoldingRange>> {
-        let doc = self.documents.get(&params.text_document.uri)?;
+pub fn folding_range<S: Server>(s: &S, params: FoldingRangeParams) -> Option<Vec<FoldingRange>> {
+    let doc = s.documents().get(&params.text_document.uri)?;
 
-        let mut traverser = FoldingRangeTraverser::new(&doc);
+    let mut ranges: Vec<FoldingRange> = vec![];
 
-        doc.traverse(&mut traverser);
-
-        Some(traverser.ranges)
-    }
-}
-
-struct FoldingRangeTraverser<'a> {
-    doc: &'a OrgDocument,
-    ranges: Vec<FoldingRange>,
-}
-
-impl<'a> Traverser for FoldingRangeTraverser<'a> {
-    fn event(&mut self, event: Event, _: &mut TraversalContext) {
+    doc.traverse(&mut from_fn(|event| {
         let syntax = match &event {
             Event::Enter(Container::Headline(i)) => i.syntax(),
             Event::Enter(Container::OrgTable(i)) => i.syntax(),
@@ -56,18 +38,20 @@ impl<'a> Traverser for FoldingRangeTraverser<'a> {
             get_block_folding_range(syntax)
         };
 
-        let start_line = self.doc.line_of(start);
-        let end_line = self.doc.line_of(end - 1);
+        let start_line = doc.line_of(start);
+        let end_line = doc.line_of(end - 1);
 
         if start_line != end_line {
-            self.ranges.push(FoldingRange {
+            ranges.push(FoldingRange {
                 start_line,
                 end_line,
                 kind: Some(FoldingRangeKind::Region),
                 ..Default::default()
             });
         }
-    }
+    }));
+
+    Some(ranges)
 }
 
 fn get_block_folding_range(syntax: &SyntaxNode) -> (u32, u32) {
@@ -84,30 +68,38 @@ fn get_block_folding_range(syntax: &SyntaxNode) -> (u32, u32) {
     (start, end)
 }
 
-impl<'a> FoldingRangeTraverser<'a> {
-    pub fn new(doc: &'a OrgDocument) -> Self {
-        FoldingRangeTraverser {
-            ranges: vec![],
-            doc,
-        }
-    }
-}
-
 #[test]
 fn test() {
-    use orgize::ParseConfig;
+    use crate::test::TestServer;
 
-    let doc = OrgDocument::new("\n* a\n\n* b\n\n", ParseConfig::default());
-    let mut t = FoldingRangeTraverser::new(&doc);
-    doc.traverse(&mut t);
-    assert_eq!(t.ranges[0].start_line, 1);
-    assert_eq!(t.ranges[0].end_line, 2);
-    assert_eq!(t.ranges[1].start_line, 3);
-    assert_eq!(t.ranges[1].end_line, 4);
+    let server = TestServer::default();
+    let url = Url::parse("test://test.org").unwrap();
+    server.add_doc(url.clone(), "\n* a\n\n* b\n\n".into());
 
-    let doc = OrgDocument::new("\n\r\n#+begin_src\n#+end_src\n\r\r", ParseConfig::default());
-    let mut t = FoldingRangeTraverser::new(&doc);
-    doc.traverse(&mut t);
-    assert_eq!(t.ranges[0].start_line, 2);
-    assert_eq!(t.ranges[0].end_line, 3);
+    let ranges = folding_range(
+        &server,
+        FoldingRangeParams {
+            text_document: TextDocumentIdentifier { uri: url.clone() },
+            partial_result_params: PartialResultParams::default(),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        },
+    )
+    .unwrap();
+    assert_eq!(ranges[0].start_line, 1);
+    assert_eq!(ranges[0].end_line, 2);
+    assert_eq!(ranges[1].start_line, 3);
+    assert_eq!(ranges[1].end_line, 4);
+
+    server.add_doc(url.clone(), "\n\r\n#+begin_src\n#+end_src\n\r\r".into());
+    let ranges = folding_range(
+        &server,
+        FoldingRangeParams {
+            text_document: TextDocumentIdentifier { uri: url.clone() },
+            partial_result_params: PartialResultParams::default(),
+            work_done_progress_params: WorkDoneProgressParams::default(),
+        },
+    )
+    .unwrap();
+    assert_eq!(ranges[0].start_line, 2);
+    assert_eq!(ranges[0].end_line, 3);
 }

@@ -2,8 +2,13 @@
   "name": "orgwise",
   "private": true,
   "dependencies": {
+    "@hookform/resolvers": "^3.3.4",
     "@radix-ui/react-checkbox": "^1.0.4",
+    "@radix-ui/react-dialog": "^1.0.5",
     "@radix-ui/react-dropdown-menu": "^2.0.6",
+    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-select": "^2.0.0",
+    "@radix-ui/react-separator": "^1.0.3",
     "@radix-ui/react-slot": "^1.0.2",
     "@tanstack/react-table": "^8.13.2",
     "@types/node": "~16.11.68",
@@ -15,12 +20,15 @@
     "autoprefixer": "^10.4.17",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "date-fns": "^3.6.0",
     "esbuild": "^0.19.12",
+    "jotai": "^2.7.0",
     "lucide-react": "^0.344.0",
     "postcss": "^8.4.35",
     "prettier": "^3.2.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-hook-form": "^7.51.0",
     "tailwind-merge": "^2.2.1",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
@@ -28,6 +36,10 @@
     "typescript": "^5.3.3",
     "vite": "^5.1.1",
     "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver-protocol": "^3.17.5",
     "vscode-uri": "^3.0.8"
+  },
+  "devDependencies": {
+    "vite-plugin-arraybuffer": "^0.0.6"
   }
 }

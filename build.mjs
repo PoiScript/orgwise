@@ -3,15 +3,17 @@ import * as esbuild from "esbuild";
 import { copyFile } from "node:fs/promises";
 import path from "node:path";
 import * as vite from "vite";
+import arraybuffer from "vite-plugin-arraybuffer";
 
 await vite.build({
+  configFile: false,
   build: {
     emptyOutDir: false,
     rollupOptions: {
-      input: "./web/index.html",
+      input: "./web/src/main.tsx",
     },
     outDir: "./vscode/dist",
-    minify: false,
+    minify: true,
     manifest: true,
   },
   resolve: {
@@ -30,6 +32,7 @@ await esbuild.build({
   format: "cjs",
   platform: "node",
   treeShaking: true,
+  minify: true,
   define: { WEB_EXTENSION: "false" },
 });
 
@@ -38,9 +41,10 @@ await esbuild.build({
   entryPoints: ["./vscode/src/extension.ts"],
   external: ["vscode"],
   outfile: "./vscode/dist/browser.js",
-  format: "esm",
+  format: "cjs",
   platform: "browser",
   treeShaking: true,
+  minify: true,
   define: { WEB_EXTENSION: "true" },
 });
 
@@ -52,20 +56,24 @@ await esbuild.build({
   format: "cjs",
   platform: "node",
   treeShaking: true,
+  minify: true,
 });
 
+await copyFile("./pkg/orgwise_bg.wasm", "./vscode/dist/orgwise_bg.wasm");
+
 await vite.build({
+  configFile: false,
   build: {
     emptyOutDir: false,
     lib: {
       name: "orgwise",
       entry: "./vscode/src/lsp-worker.ts",
-      formats: ["umd"],
+      formats: ["iife"],
       fileName: () => "lsp-worker.js",
     },
     outDir: "./vscode/dist",
-    minify: false,
+    minify: true,
+    manifest: false,
   },
+  plugins: [arraybuffer()],
 });
-
-await copyFile("./pkg/orgwise_bg.wasm", "./vscode/dist/orgwise_bg.wasm");

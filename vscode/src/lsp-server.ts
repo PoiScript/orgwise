@@ -11,7 +11,7 @@ import {
 } from "vscode-languageserver-protocol/node";
 import { URI } from "vscode-uri";
 
-import { Server, initSync } from "../../pkg/orgwise";
+import { WasmLspServer as Server, initSync } from "../../pkg/orgwise";
 
 const buffer = readFileSync(resolve(__dirname, "./orgwise_bg.wasm"));
 initSync(buffer);
@@ -22,18 +22,16 @@ const reader = new IPCMessageReader(process);
 const connection = createMessageConnection(reader, writer);
 
 const server = new Server({
-  sendNotification: (method: string, params: any) => {
-    return connection.sendNotification(method, params);
-  },
-  sendRequest: (method: string, params: any) => {
-    return connection.sendRequest(method, params);
-  },
+  sendNotification: (method: string, params: any) =>
+    connection.sendNotification(method, params),
 
-  homeDir: () => homedir(),
+  sendRequest: (method: string, params: any) =>
+    connection.sendRequest(method, params),
+
+  homeDir: () => URI.file(homedir()).toString() + "/",
 
   readToString: async (url: string) => {
-    const uri = URI.parse(url);
-    const path = uri.fsPath;
+    const path = URI.parse(url).fsPath;
     if (existsSync(path)) {
       return readFile(path, { encoding: "utf-8" });
     } else {
@@ -41,11 +39,8 @@ const server = new Server({
     }
   },
 
-  write: async (url: string, content: string) => {
-    const uri = URI.parse(url);
-    const path = uri.fsPath;
-    return writeFile(path, content);
-  },
+  write: (url: string, content: string) =>
+    writeFile(URI.parse(url).fsPath, content),
 });
 
 connection.onRequest((method, params) => {

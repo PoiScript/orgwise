@@ -5,9 +5,8 @@ use orgize::{
     SyntaxKind,
 };
 
-use super::{
-    org_document::OrgDocument, FileSystem, LanguageClient, LanguageServerBase, Process,
-};
+use crate::base::OrgDocument;
+use crate::base::Server;
 
 const TIMESTAMP: SemanticTokenType = SemanticTokenType::new("timestamp");
 const HEADLINE_TODO_KEYWORD: SemanticTokenType = SemanticTokenType::new("headlineTodoKeyword");
@@ -25,42 +24,37 @@ pub const TYPES: &[SemanticTokenType] = &[
 
 pub const MODIFIERS: &[SemanticTokenModifier] = &[];
 
-impl<E> LanguageServerBase<E>
-where
-    E: FileSystem + LanguageClient + Process,
-{
-    pub fn semantic_tokens_full(
-        &self,
-        params: SemanticTokensParams,
-    ) -> Option<SemanticTokensResult> {
-        let doc = self.documents.get(&params.text_document.uri)?;
+pub fn semantic_tokens_full<S: Server>(
+    s: &S,
+    params: SemanticTokensParams,
+) -> Option<SemanticTokensResult> {
+    let doc = s.documents().get(&params.text_document.uri)?;
 
-        let mut traverser = SemanticTokenTraverser::new(&doc);
+    let mut traverser = SemanticTokenTraverser::new(&doc);
 
-        doc.traverse(&mut traverser);
+    doc.traverse(&mut traverser);
 
-        Some(SemanticTokensResult::Tokens(SemanticTokens {
-            result_id: None,
+    Some(SemanticTokensResult::Tokens(SemanticTokens {
+        result_id: None,
+        data: traverser.tokens,
+    }))
+}
+
+pub fn semantic_tokens_range<S: Server>(
+    s: &S,
+    params: SemanticTokensRangeParams,
+) -> Option<SemanticTokensRangeResult> {
+    let doc = s.documents().get(&params.text_document.uri)?;
+
+    let mut traverser = SemanticTokenTraverser::with_range(&doc, params.range);
+
+    doc.traverse(&mut traverser);
+
+    Some(SemanticTokensRangeResult::Partial(
+        SemanticTokensPartialResult {
             data: traverser.tokens,
-        }))
-    }
-
-    pub fn semantic_tokens_range(
-        &self,
-        params: SemanticTokensRangeParams,
-    ) -> Option<SemanticTokensRangeResult> {
-        let doc = self.documents.get(&params.text_document.uri)?;
-
-        let mut traverser = SemanticTokenTraverser::with_range(&doc, params.range);
-
-        doc.traverse(&mut traverser);
-
-        Some(SemanticTokensRangeResult::Partial(
-            SemanticTokensPartialResult {
-                data: traverser.tokens,
-            },
-        ))
-    }
+        },
+    ))
 }
 
 struct SemanticTokenTraverser<'a> {

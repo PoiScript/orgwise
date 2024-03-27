@@ -11,41 +11,41 @@ import {
 import { Utils } from "vscode-uri";
 
 import { client } from "./extension";
-import { createHtml } from "./webview";
 
-export const register = (context: ExtensionContext) => {
-  context.subscriptions.push(
-    commands.registerTextEditorCommand("orgwise.preview-html", (editor) => {
-      PreviewHtmlPanel.createOrShow(context.extensionUri, editor.document.uri);
-    }),
-  );
-};
+export default class PreviewHtml {
+  public static currentPanel: PreviewHtml | undefined;
 
-class PreviewHtmlPanel {
-  public static currentPanel: PreviewHtmlPanel | undefined;
-
-  public static readonly viewType = "orgwisePreviewHtml";
+  public static readonly viewType = "orgwise-preview-html";
 
   private readonly _panel: WebviewPanel;
   private _orgUri: Uri;
+  private _extensionUri: Uri;
 
   private _disposables: Disposable[] = [];
 
-  public static createOrShow(extensionUri: Uri, orgUri: Uri) {
+  static register(context: ExtensionContext): Disposable {
+    return commands.registerTextEditorCommand(
+      "orgwise.preview-html-ui",
+      (editor) =>
+        PreviewHtml.createOrShow(context.extensionUri, editor.document.uri)
+    );
+  }
+
+  private static createOrShow(extensionUri: Uri, orgUri: Uri) {
     const column = window.activeTextEditor.viewColumn! + 1;
 
     // If we already have a panel, show it.
-    if (PreviewHtmlPanel.currentPanel) {
-      PreviewHtmlPanel.currentPanel._panel.reveal(column);
-      PreviewHtmlPanel.currentPanel._orgUri = orgUri;
-      PreviewHtmlPanel.currentPanel.refresh();
+    if (PreviewHtml.currentPanel) {
+      PreviewHtml.currentPanel._panel.reveal(column);
+      PreviewHtml.currentPanel._orgUri = orgUri;
+      PreviewHtml.currentPanel.refresh();
       // PreviewHtmlPanel.currentPanel._panel.webview.pos
       return;
     }
 
     // Otherwise, create a new panel.
     const panel = window.createWebviewPanel(
-      PreviewHtmlPanel.viewType,
+      PreviewHtml.viewType,
       "Preview of " + Utils.basename(orgUri),
       column || ViewColumn.One,
       {
@@ -57,17 +57,16 @@ class PreviewHtmlPanel {
           Uri.joinPath(extensionUri, "dist"),
           ...workspace.workspaceFolders.map((folder) => folder.uri),
         ],
-      },
+      }
     );
 
-    panel.webview.html = createHtml(orgUri, extensionUri, panel.webview);
-
-    PreviewHtmlPanel.currentPanel = new PreviewHtmlPanel(panel, orgUri);
+    PreviewHtml.currentPanel = new PreviewHtml(panel, orgUri, extensionUri);
   }
 
-  private constructor(panel: WebviewPanel, orgUri: Uri) {
+  private constructor(panel: WebviewPanel, orgUri: Uri, extensionUri: Uri) {
     this._panel = panel;
     this._orgUri = orgUri;
+    this._extensionUri = extensionUri;
 
     // Set the webview's initial html content
     this._update();
@@ -79,7 +78,7 @@ class PreviewHtmlPanel {
         this.dispose();
       },
       null,
-      this._disposables,
+      this._disposables
     );
 
     workspace.onDidChangeTextDocument((event) => {
@@ -102,7 +101,7 @@ class PreviewHtmlPanel {
         }
       },
       null,
-      this._disposables,
+      this._disposables
     );
   }
 
@@ -137,17 +136,37 @@ class PreviewHtmlPanel {
         {
           command: "orgwise.preview-html",
           arguments: [this._orgUri.with({ scheme: "file" }).toString()],
-        },
+        }
       );
-      this._panel.webview.postMessage({
-        type: "preview-html",
-        content: content,
-      });
+
+      this._panel.webview.html = `<!doctype html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+
+            <meta
+              name="viewport"
+              content="width=device-width, initial-scale=1.0"
+            />
+
+            <base href="${this._panel.webview.asWebviewUri(this._orgUri)}" />
+
+            <link
+              href="${this._panel.webview.asWebviewUri(
+                Uri.joinPath(this._extensionUri, "media", "org-mode.css")
+              )}"
+              rel="stylesheet"
+            />
+          </head>
+          <body>
+            <article>${content}</article>
+          </body>
+        </html>`;
     } catch {}
   }
 
   public dispose() {
-    PreviewHtmlPanel.currentPanel = undefined;
+    PreviewHtml.currentPanel = undefined;
 
     // Clean up our resources
     this._panel.dispose();
