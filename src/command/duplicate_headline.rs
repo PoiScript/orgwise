@@ -1,5 +1,4 @@
 use lsp_types::{MessageType, Url};
-use orgize::rowan::ast::AstNode;
 use orgize::rowan::TextRange;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -42,10 +41,8 @@ impl Executable for DuplicateHeadline {
         };
 
         let (new_text, range) = (move || {
-            let end = headline.syntax().text_range().end();
-            let text_range = TextRange::new(end, end);
-            let new_text = headline.syntax().to_string();
-            (new_text, text_range)
+            let end = headline.end();
+            (headline.raw(), TextRange::new(end, end))
         })();
 
         drop(doc);

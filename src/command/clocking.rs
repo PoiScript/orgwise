@@ -50,7 +50,7 @@ impl Executable for ClockingStatus {
                         if clock.is_running() && !matches!(&running, Some(r) if r.start >= start) {
                             running = Some(ClockingStatusResult {
                                 url: doc.key().clone(),
-                                line: doc.line_of(hdl.syntax().text_range().start().into()),
+                                line: doc.line_of(hdl.start().into()),
                                 start,
                                 title: hdl.title_raw(),
                             });
@@ -59,7 +59,7 @@ impl Executable for ClockingStatus {
                         if !matches!(&last, Some(l) if l.start >= start) {
                             last = Some(ClockingStatusResult {
                                 url: doc.key().clone(),
-                                line: doc.line_of(hdl.syntax().text_range().start().into()),
+                                line: doc.line_of(hdl.start().into()),
                                 start,
                                 title: hdl.title_raw(),
                             })

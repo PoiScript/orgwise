@@ -8,9 +8,7 @@ use serde_json::Value;
 use crate::base::Server;
 use crate::command::utils::collect_src_blocks;
 
-use super::utils::{
-    find_block, header_argument, language_comments, property_drawer, property_keyword,
-};
+use super::utils::{header_argument, language_comments, property_drawer, property_keyword};
 use super::Executable;
 
 #[derive(Deserialize, Serialize)]
@@ -30,7 +28,7 @@ impl Executable for SrcBlockDetangle {
             return Ok(Value::Null);
         };
 
-        let Some(block) = find_block(&doc, self.block_offset) else {
+        let Some(block) = doc.org.node_at_offset(self.block_offset) else {
             return Ok(Value::Null);
         };
 

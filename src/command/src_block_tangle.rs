@@ -13,8 +13,7 @@ use std::fmt::Write;
 use crate::base::Server;
 
 use super::utils::{
-    collect_src_blocks, find_block, header_argument, language_comments, property_drawer,
-    property_keyword,
+    collect_src_blocks, header_argument, language_comments, property_drawer, property_keyword,
 };
 use super::Executable;
 
@@ -90,7 +89,7 @@ impl Executable for SrcBlockTangle {
             return Ok(Value::Null);
         };
 
-        let Some(block) = find_block(&doc, self.block_offset) else {
+        let Some(block) = doc.org.node_at_offset(self.block_offset) else {
             server
                 .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
                 .await;

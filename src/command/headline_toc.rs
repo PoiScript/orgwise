@@ -42,11 +42,11 @@ impl Executable for HeadlineToc {
                         .find(|n| n.kind() == SyntaxKind::NEW_LINE)
                         .map(|n| n.text_range().end());
 
-                    let end = headline.syntax().text_range().end();
+                    let end = headline.end();
 
                     edit_range = Some(TextRange::new(start.unwrap_or(end), end));
                 } else {
-                    let title = headline.title().map(|e| e.to_string()).collect::<String>();
+                    let title = headline.title_raw();
 
                     let slug = super::utils::headline_slug(&headline);
 

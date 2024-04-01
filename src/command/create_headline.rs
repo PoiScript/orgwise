@@ -1,5 +1,4 @@
 use lsp_types::{MessageType, Url};
-use orgize::rowan::ast::AstNode;
 use orgize::rowan::TextRange;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -67,7 +66,7 @@ impl Executable for CreateHeadline {
 
         s.push('\n');
 
-        let end = doc.org.document().syntax().text_range().end();
+        let end = doc.org.document().end();
 
         drop(doc);
 

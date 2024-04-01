@@ -6,9 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::iter::once;
 
-use super::utils::{
-    find_block, header_argument, language_execute_command, property_drawer, property_keyword,
-};
+use super::utils::{header_argument, language_execute_command, property_drawer, property_keyword};
 use super::Executable;
 
 use crate::base::Server;
@@ -31,7 +29,7 @@ impl Executable for SrcBlockExecute {
             return Ok(Value::Null);
         };
 
-        let Some(block) = find_block(&doc, self.block_offset) else {
+        let Some(block) = doc.org.node_at_offset(self.block_offset) else {
             return Ok(Value::Null);
         };
 
@@ -120,7 +118,7 @@ impl ExecuteOptions {
         };
 
         let range = find_existing_results(&block).unwrap_or_else(|| {
-            let end = block.syntax().text_range().end();
+            let end = block.end();
             TextRange::new(end, end)
         });
 

@@ -102,7 +102,7 @@ impl UpdateHeadline {
                         TextRange::new(s, s)
                     })
                     .unwrap_or_else(|| {
-                        let s = headline.syntax().text_range().end();
+                        let s = headline.end();
                         TextRange::new(s, s)
                     });
 
@@ -133,7 +133,7 @@ impl UpdateHeadline {
                     Some((format!("{section}\n"), TextRange::new(s, s)))
                 })
                 .unwrap_or_else(|| {
-                    let s = headline.syntax().text_range().end();
+                    let s = headline.end();
                     Some((format!("\n{section}\n"), TextRange::new(s, s)))
                 }),
 
@@ -219,7 +219,7 @@ impl UpdateHeadline {
                     .children_with_tokens()
                     .find(|t| t.kind() == SyntaxKind::NEW_LINE)
                     .map(|t| t.text_range().start())
-                    .unwrap_or_else(|| headline.syntax().text_range().end());
+                    .unwrap_or_else(|| headline.end());
 
                 Some((
                     format!(" :{}:", tags.join(":")),

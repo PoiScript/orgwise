@@ -67,11 +67,11 @@ impl Executable for SearchHeadline {
                 results.push(Result {
                     title: headline.title_raw(),
                     url: item.key().clone(),
-                    line: doc.line_of(headline.syntax().text_range().start().into()) + 1,
+                    line: doc.line_of(headline.start().into()) + 1,
                     level: headline.level(),
                     priority: headline.priority().map(|t| t.to_string()),
                     tags: headline.tags().map(|t| t.to_string()).collect(),
-                    section: headline.section().map(|t| t.syntax().to_string()),
+                    section: headline.section().map(|t| t.raw()),
 
                     planning: Planning {
                         closed: headline

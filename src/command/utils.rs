@@ -8,7 +8,7 @@ use nom::{
 use orgize::{
     ast::{Headline, Keyword, SourceBlock, Token},
     export::{from_fn_with_ctx, Container, Event},
-    rowan::{ast::AstNode, TextSize},
+    rowan::ast::AstNode,
     Org, SyntaxKind, SyntaxNode,
 };
 
@@ -19,22 +19,7 @@ pub fn find_headline(doc: &OrgDocument, line: u32) -> Option<Headline> {
         line: line - 1,
         character: 0,
     });
-
-    doc.org
-        .document()
-        .syntax()
-        .descendants()
-        .filter_map(Headline::cast)
-        .find(|n| n.start() == offset.into())
-}
-
-pub fn find_block(doc: &OrgDocument, offset: TextSize) -> Option<SourceBlock> {
-    doc.org
-        .document()
-        .syntax()
-        .descendants()
-        .filter_map(SourceBlock::cast)
-        .find(|n| n.start() == offset)
+    doc.org.node_at_offset(offset)
 }
 
 pub fn collect_src_blocks(org: &Org) -> Vec<SourceBlock> {
@@ -89,10 +74,8 @@ pub fn language_execute_command(language: &str) -> Option<&str> {
 
 pub fn headline_slug(headline: &Headline) -> String {
     headline.title().fold(String::new(), |mut acc, elem| {
-        for ch in elem.to_string().chars() {
-            if ch.is_ascii_graphic() {
-                acc.push(ch);
-            }
+        for ch in elem.to_string().chars().filter(|c| c.is_ascii_graphic()) {
+            acc.push(ch);
         }
         acc
     })
