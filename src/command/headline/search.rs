@@ -1,4 +1,4 @@
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use lsp_types::Url;
 use orgize::{
     export::{from_fn_with_ctx, Container, Event},
@@ -6,23 +6,24 @@ use orgize::{
     SyntaxKind,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::base::Server;
 
-use super::Executable;
+use crate::command::Executable;
 
 #[derive(Deserialize, Debug, Serialize)]
-pub struct SearchHeadline {
+pub struct HeadlineSearch {
     pub url: Option<Url>,
     pub from: Option<DateTime<Utc>>,
     pub to: Option<DateTime<Utc>>,
 }
 
-impl Executable for SearchHeadline {
-    const NAME: &'static str = "search-headline";
+impl Executable for HeadlineSearch {
+    const NAME: &'static str = "headline-search";
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = Vec<Result>;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Vec<Result>> {
         let mut results = vec![];
 
         let iter = server.documents().iter().filter(|doc| {
@@ -91,6 +92,21 @@ impl Executable for SearchHeadline {
                             .map(|t| Utc.from_utc_datetime(&t)),
                     },
 
+                    clocking: Clocking {
+                        start: headline
+                            .clocks()
+                            .filter(|x| x.is_running())
+                            .filter_map(|x| x.value())
+                            .find_map(|x| x.start_to_chrono()),
+                        total_minutes: headline
+                            .clocks()
+                            .filter(|x| x.is_closed())
+                            .filter_map(|x| x.value())
+                            .filter_map(|x| Some(x.end_to_chrono()? - x.start_to_chrono()?))
+                            .map(|x| x.num_minutes())
+                            .sum(),
+                    },
+
                     keyword: headline
                         .syntax()
                         .children_with_tokens()
@@ -110,12 +126,12 @@ impl Executable for SearchHeadline {
             }));
         }
 
-        Ok(serde_json::to_value(results)?)
+        Ok(results)
     }
 }
 
 #[derive(Serialize)]
-struct Result {
+pub struct Result {
     title: String,
     url: Url,
     // zero-based
@@ -126,6 +142,7 @@ struct Result {
     keyword: Option<Keyword>,
     planning: Planning,
     section: Option<String>,
+    clocking: Clocking,
 }
 
 #[derive(Serialize)]
@@ -133,6 +150,12 @@ struct Planning {
     deadline: Option<DateTime<Utc>>,
     scheduled: Option<DateTime<Utc>>,
     closed: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize)]
+struct Clocking {
+    total_minutes: i64,
+    start: Option<NaiveDateTime>,
 }
 
 #[derive(Serialize)]

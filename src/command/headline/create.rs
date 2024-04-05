@@ -1,14 +1,13 @@
 use lsp_types::{MessageType, Url};
 use orgize::rowan::TextRange;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::base::Server;
 
-use super::Executable;
+use crate::command::Executable;
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct CreateHeadline {
+pub struct HeadlineCreate {
     pub url: Url,
     pub priority: Option<String>,
     pub keyword: Option<String>,
@@ -17,10 +16,12 @@ pub struct CreateHeadline {
     pub section: Option<String>,
 }
 
-impl Executable for CreateHeadline {
-    const NAME: &'static str = "create-headline";
+impl Executable for HeadlineCreate {
+    const NAME: &'static str = "headline-create";
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
             server
                 .log_message(
@@ -29,7 +30,7 @@ impl Executable for CreateHeadline {
                 )
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let mut s = "\n*".to_string();
@@ -74,6 +75,6 @@ impl Executable for CreateHeadline {
             .apply_edit(self.url, s, TextRange::new(end, end))
             .await?;
 
-        Ok(true.into())
+        Ok(true)
     }
 }

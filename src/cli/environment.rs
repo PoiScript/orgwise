@@ -123,6 +123,7 @@ impl Server for CliServer {
                 print!("{}", &input[off..]);
             } else {
                 output += &input[off..];
+                tokio::fs::write(&path, &output).await?;
                 self.update_doc(url.clone(), None, output);
             }
         }

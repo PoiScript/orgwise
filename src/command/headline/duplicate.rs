@@ -1,23 +1,24 @@
 use lsp_types::{MessageType, Url};
 use orgize::rowan::TextRange;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::base::Server;
 
-use super::utils::find_headline;
-use super::Executable;
+use crate::command::Executable;
+use crate::utils::headline::find_headline;
 
 #[derive(Deserialize, Serialize)]
-pub struct DuplicateHeadline {
+pub struct HeadlineDuplicate {
     pub url: Url,
     pub line: u32,
 }
 
-impl Executable for DuplicateHeadline {
-    const NAME: &'static str = "duplicate-headline";
+impl Executable for HeadlineDuplicate {
+    const NAME: &'static str = "headline-duplicate";
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
             server
                 .log_message(
@@ -26,7 +27,7 @@ impl Executable for DuplicateHeadline {
                 )
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let Some(headline) = find_headline(&doc, self.line) else {
@@ -37,7 +38,7 @@ impl Executable for DuplicateHeadline {
                 )
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let (new_text, range) = (move || {
@@ -49,7 +50,7 @@ impl Executable for DuplicateHeadline {
 
         server.apply_edit(self.url, new_text, range).await?;
 
-        Ok(Value::Bool(true))
+        Ok(true)
     }
 }
 
@@ -62,7 +63,7 @@ async fn test() {
     let url = Url::parse("test://test.org").unwrap();
     server.add_doc(url.clone(), "* a\n* b\n * c".into());
 
-    DuplicateHeadline {
+    HeadlineDuplicate {
         line: 1,
         url: url.clone(),
     }
@@ -71,7 +72,7 @@ async fn test() {
     .unwrap();
     assert_eq!(server.get(&url), "* a\n* a\n* b\n * c");
 
-    DuplicateHeadline {
+    HeadlineDuplicate {
         line: 2,
         url: url.clone(),
     }

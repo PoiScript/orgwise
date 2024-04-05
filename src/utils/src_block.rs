@@ -1,5 +1,4 @@
 use jetscii::Substring;
-use lsp_types::Position;
 use nom::{
     bytes::complete::take_while1,
     character::complete::{space0, space1},
@@ -11,16 +10,6 @@ use orgize::{
     rowan::ast::AstNode,
     Org, SyntaxKind, SyntaxNode,
 };
-
-use crate::base::OrgDocument;
-
-pub fn find_headline(doc: &OrgDocument, line: u32) -> Option<Headline> {
-    let offset = doc.offset_of(Position {
-        line: line - 1,
-        character: 0,
-    });
-    doc.org.node_at_offset(offset)
-}
 
 pub fn collect_src_blocks(org: &Org) -> Vec<SourceBlock> {
     let mut blocks = Vec::<SourceBlock>::new();
@@ -70,15 +59,6 @@ pub fn language_execute_command(language: &str) -> Option<&str> {
         "fish" => Some("fish"),
         _ => None,
     }
-}
-
-pub fn headline_slug(headline: &Headline) -> String {
-    headline.title().fold(String::new(), |mut acc, elem| {
-        for ch in elem.to_string().chars().filter(|c| c.is_ascii_graphic()) {
-            acc.push(ch);
-        }
-        acc
-    })
 }
 
 pub fn header_argument<'a>(
@@ -179,25 +159,4 @@ fn parse_header_args() {
         extract_header_args(":results output code", ":results").unwrap(),
         "output code"
     );
-}
-
-pub mod text_size {
-    use orgize::rowan::TextSize;
-    use serde::de::Deserializer;
-    use serde::ser::Serializer;
-    use serde::Deserialize;
-
-    pub fn deserialize<'de, D>(d: D) -> Result<TextSize, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        <u32 as Deserialize>::deserialize(d).map(TextSize::new)
-    }
-
-    pub fn serialize<S>(t: &TextSize, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        s.serialize_u32((*t).into())
-    }
 }

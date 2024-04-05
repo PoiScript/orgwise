@@ -4,15 +4,14 @@ use orgize::rowan::ast::AstNode;
 use orgize::SyntaxKind;
 use orgize::{ast::Headline, rowan::TextRange};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::base::Server;
 
-use super::utils::find_headline;
-use super::Executable;
+use crate::command::Executable;
+use crate::utils::headline::find_headline;
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct UpdateHeadline {
+pub struct HeadlineUpdate {
     pub url: Url,
     pub line: u32,
     pub keyword: Option<String>,
@@ -22,10 +21,12 @@ pub struct UpdateHeadline {
     pub tags: Option<Vec<String>>,
 }
 
-impl Executable for UpdateHeadline {
-    const NAME: &'static str = "update-headline";
+impl Executable for HeadlineUpdate {
+    const NAME: &'static str = "headline-update";
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
             server
                 .log_message(
@@ -34,7 +35,7 @@ impl Executable for UpdateHeadline {
                 )
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let Some(headline) = find_headline(&doc, self.line) else {
@@ -45,7 +46,7 @@ impl Executable for UpdateHeadline {
                 )
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         drop(doc);
@@ -59,11 +60,11 @@ impl Executable for UpdateHeadline {
 
         server.apply_edits(edits.into_iter()).await?;
 
-        Ok(Value::Bool(true))
+        Ok(true)
     }
 }
 
-impl UpdateHeadline {
+impl HeadlineUpdate {
     fn edit(&self, headline: Headline) -> Vec<(String, TextRange)> {
         self.edit_title(&headline)
             .into_iter()
@@ -237,9 +238,9 @@ impl UpdateHeadline {
 async fn test() {
     use crate::test::TestServer;
 
-    impl Default for UpdateHeadline {
+    impl Default for HeadlineUpdate {
         fn default() -> Self {
-            UpdateHeadline {
+            HeadlineUpdate {
                 url: Url::parse("test://test.org").unwrap(),
                 line: 1,
                 keyword: None,
@@ -257,7 +258,7 @@ async fn test() {
 
     // keyword
     {
-        UpdateHeadline {
+        HeadlineUpdate {
             keyword: Some("DONE".into()),
             ..Default::default()
         }
@@ -266,7 +267,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "* DONE ");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             keyword: Some("TODO".into()),
             ..Default::default()
         }
@@ -275,7 +276,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "* TODO ");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             keyword: Some("".into()),
             ..Default::default()
         }
@@ -287,7 +288,7 @@ async fn test() {
 
     // title
     {
-        UpdateHeadline {
+        HeadlineUpdate {
             title: Some("title".into()),
             ..Default::default()
         }
@@ -296,7 +297,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "*   title");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             title: Some("hello world".into()),
             ..Default::default()
         }
@@ -305,7 +306,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "*   hello world");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             title: Some("".into()),
             ..Default::default()
         }
@@ -317,7 +318,7 @@ async fn test() {
 
     // priority
     {
-        UpdateHeadline {
+        HeadlineUpdate {
             priority: Some("A".into()),
             ..Default::default()
         }
@@ -326,7 +327,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "*   [#A] ");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             priority: Some("B".into()),
             ..Default::default()
         }
@@ -335,7 +336,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "*   [#B] ");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             priority: Some("".into()),
             ..Default::default()
         }
@@ -347,7 +348,7 @@ async fn test() {
 
     // tags
     {
-        UpdateHeadline {
+        HeadlineUpdate {
             tags: Some(vec!["a".into(), "b".into()]),
             ..Default::default()
         }
@@ -356,7 +357,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "*     :a:b:");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             tags: Some(vec!["foo".into(), "bar".into()]),
             ..Default::default()
         }
@@ -365,7 +366,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "*     :foo:bar:");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             tags: Some(vec![]),
             ..Default::default()
         }
@@ -377,7 +378,7 @@ async fn test() {
 
     // section
     {
-        UpdateHeadline {
+        HeadlineUpdate {
             section: Some("section".into()),
             ..Default::default()
         }
@@ -386,7 +387,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "*     \nsection\n");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             section: Some("long \n \n section".into()),
             ..Default::default()
         }
@@ -395,7 +396,7 @@ async fn test() {
         .unwrap();
         assert_eq!(server.get(&url), "*     \nlong \n \n section\n");
 
-        UpdateHeadline {
+        HeadlineUpdate {
             section: Some("".into()),
             ..Default::default()
         }

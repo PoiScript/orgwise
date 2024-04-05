@@ -16,28 +16,6 @@ use tower_http::cors::{Any, CorsLayer};
 use crate::command::OrgwiseCommand;
 use crate::{base::Server, cli::environment::CliServer};
 
-struct AppError(anyhow::Error);
-
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        log::error!("{:?}", self.0);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
-        )
-            .into_response()
-    }
-}
-
-impl<E> From<E> for AppError
-where
-    E: Into<anyhow::Error>,
-{
-    fn from(err: E) -> Self {
-        Self(err.into())
-    }
-}
-
 #[derive(Debug, Args)]
 pub struct Command {
     #[arg(short, long)]
@@ -87,6 +65,16 @@ impl Command {
 async fn execute_command(
     State(state): State<AppState>,
     Json(command): Json<OrgwiseCommand>,
-) -> Result<impl IntoResponse, AppError> {
-    Ok(Json(command.execute(state.as_ref()).await?))
+) -> Response {
+    command
+        .execute_response(state.as_ref())
+        .await
+        .unwrap_or_else(|err| {
+            log::error!("{err:?}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Something went wrong: {err}"),
+            )
+                .into_response()
+        })
 }

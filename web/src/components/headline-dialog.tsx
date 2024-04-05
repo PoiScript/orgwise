@@ -1,11 +1,4 @@
-import {
-  Calendar,
-  CheckCircle2,
-  Circle,
-  CircleDashed,
-  Flag,
-  Tags,
-} from "lucide-react";
+import { CheckCircle2, Circle, CircleDashed, Flag, Tags } from "lucide-react";
 import { ReactNode } from "react";
 import {
   Control,
@@ -16,7 +9,7 @@ import {
   useForm,
 } from "react-hook-form";
 
-import { SearchResult, commandAtom } from "@/atom";
+import { SearchResult } from "@/atom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,7 +17,8 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSetAtom } from "jotai";
+import { mutate } from "swr";
+import executeCommand from "../command";
 
 export function DropdownMenuDemo({
   item,
@@ -37,20 +31,20 @@ export function DropdownMenuDemo({
     defaultValues: item,
   });
 
-  const executeCommand = useSetAtom(commandAtom);
-
   return (
     <form
-      onSubmit={handleSubmit(async (value) => {
-        await executeCommand("update-headline", {
+      onSubmit={handleSubmit((value) => {
+        executeCommand("headline-update", {
           url: value.url,
           line: value.line,
           keyword: value.keyword?.value || "",
           priority: value.priority || "",
           title: value.title || "",
           section: value.section || "",
+        }).then(() => {
+          mutate("headline-search");
+          onClose();
         });
-        onClose();
       })}
     >
       <div className="p-4 flex flex-row items-center justify-center gap-2">
@@ -113,7 +107,7 @@ export function DropdownMenuDemo({
             <Button
               size="sm"
               className="rounded-full border-0 gap-1"
-              variant={field.value ? "default" : "secondary"}
+              variant={field.value?.type === "DONE" ? "default" : "secondary"}
               disabled={formState.isLoading}
             >
               {field.value ? (
@@ -125,7 +119,7 @@ export function DropdownMenuDemo({
               ) : (
                 <CircleDashed size={18} />
               )}
-              Status
+              {field.value?.value || "Status"}
             </Button>
           )}
         />
@@ -208,7 +202,7 @@ export function DropdownMenuDemo({
             variant="ghost"
             type="button"
             onClick={async () => {
-              await executeCommand("remove-headline", {
+              await executeCommand("headline-remove", {
                 url: item.url,
                 line: item.line,
               });
@@ -223,7 +217,7 @@ export function DropdownMenuDemo({
             variant="ghost"
             type="button"
             onClick={async () => {
-              await executeCommand("duplicate-headline", {
+              await executeCommand("headline-duplicate", {
                 url: item.url,
                 line: item.line,
               });

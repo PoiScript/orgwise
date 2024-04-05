@@ -1,13 +1,15 @@
 import { useAtomValue, useSetAtom } from "jotai/react";
-import React, { Suspense, useEffect } from "react";
+import React, { useEffect } from "react";
+import useSWR, { SWRConfig } from "swr";
+import executeCommand from "./command";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { Tasks } from "./Tasks";
-import { ViewMode, loadingAtom, searchAtom, viewModeAtom } from "./atom";
 import { CalendarDay } from "./CalendarDay";
-import Clocking from "./components/clocking";
+import { Tasks } from "./Tasks";
+import { ViewMode, filtersAtom, viewModeAtom } from "./atom";
+import Clocking from "./components/Clocking";
 
 export type SearchResult = {
   title: string;
@@ -27,7 +29,12 @@ const App: React.FC<{}> = () => {
   const viewMode = useAtomValue(viewModeAtom);
 
   return (
-    <>
+    <SWRConfig
+      value={{
+        fetcher: executeCommand,
+        revalidateOnFocus: false,
+      }}
+    >
       <div className="flex items-center justify-between px-4 pt-4">
         <SearchInput />
 
@@ -39,15 +46,15 @@ const App: React.FC<{}> = () => {
       {viewMode === ViewMode.Tasks && <Tasks />}
 
       {viewMode === ViewMode.CalendarDay && <CalendarDay />}
-    </>
+    </SWRConfig>
   );
 };
 
 const SearchInput: React.FC = () => {
-  const search = useSetAtom(searchAtom);
+  const setFilter = useSetAtom(filtersAtom);
 
   useEffect(() => {
-    search();
+    setFilter({});
   }, []);
 
   return (
@@ -63,11 +70,10 @@ const SearchInput: React.FC = () => {
 };
 
 const LoadingButton: React.FC = () => {
-  const search = useSetAtom(searchAtom);
-  const loading = useAtomValue(loadingAtom);
+  const { isLoading, mutate } = useSWR("headline-search");
 
   return (
-    <Button variant="ghost" disabled={loading} onClick={search}>
+    <Button variant="ghost" disabled={isLoading} onClick={() => mutate()}>
       Reload
     </Button>
   );

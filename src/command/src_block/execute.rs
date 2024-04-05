@@ -3,19 +3,20 @@ use orgize::rowan::TextSize;
 use orgize::{ast::AffiliatedKeyword, rowan::TextRange, SyntaxKind};
 use orgize::{ast::SourceBlock, rowan::ast::AstNode};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::iter::once;
 
-use super::utils::{header_argument, language_execute_command, property_drawer, property_keyword};
-use super::Executable;
+use crate::command::Executable;
+use crate::utils::src_block::{
+    collect_src_blocks, header_argument, language_execute_command, property_drawer,
+    property_keyword,
+};
 
 use crate::base::Server;
-use crate::command::utils::collect_src_blocks;
 
 #[derive(Serialize, Deserialize)]
 pub struct SrcBlockExecute {
     pub url: Url,
-    #[serde(with = "crate::command::utils::text_size")]
+    #[serde(with = "crate::utils::text_size")]
     pub block_offset: TextSize,
 }
 
@@ -24,20 +25,22 @@ impl Executable for SrcBlockExecute {
 
     const TITLE: Option<&'static str> = Some("Execute");
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let Some(block) = doc.org.node_at_offset(self.block_offset) else {
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let Some(options) = ExecuteOptions::new(block) else {
             server
                 .log_message(MessageType::ERROR, "Code block can't be executed.".into())
                 .await;
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let new_text = options.run(server).await?;
@@ -46,7 +49,7 @@ impl Executable for SrcBlockExecute {
 
         server.apply_edit(self.url, new_text, options.range).await?;
 
-        Ok(Value::Bool(true))
+        Ok(true)
     }
 }
 
@@ -60,9 +63,11 @@ impl Executable for SrcBlockExecuteAll {
 
     const TITLE: Option<&'static str> = Some("Execute all source blocks");
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let blocks = collect_src_blocks(&doc.org);
@@ -79,7 +84,7 @@ impl Executable for SrcBlockExecuteAll {
 
         server.apply_edits(edits.into_iter()).await?;
 
-        Ok(Value::Bool(true))
+        Ok(true)
     }
 }
 

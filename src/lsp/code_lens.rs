@@ -4,10 +4,12 @@ use orgize::{
     rowan::ast::AstNode,
 };
 
-use crate::base::OrgDocument;
-use crate::base::Server;
-use crate::command::utils::{header_argument, property_drawer, property_keyword};
-use crate::command::{HeadlineToc, SrcBlockDetangle, SrcBlockExecute, SrcBlockTangle};
+use crate::command::{
+    ClockingStop, HeadlineGenerateToc, SrcBlockDetangle, SrcBlockExecute, SrcBlockTangle,
+};
+use crate::utils::src_block::{header_argument, property_drawer, property_keyword};
+use crate::{base::OrgDocument, utils::clocking::find_logbook};
+use crate::{base::Server, command::ClockingStart};
 
 pub fn code_lens<S: Server>(s: &S, params: CodeLensParams) -> Option<Vec<CodeLens>> {
     let doc = s.documents().get(&params.text_document.uri)?;
@@ -90,18 +92,38 @@ impl<'a> Traverser for CodeLensTraverser<'a> {
                 ctx.skip();
             }
             Event::Enter(Container::Headline(headline)) => {
-                if headline.tags().any(|t| t.eq_ignore_ascii_case("TOC")) {
-                    let start = headline.start();
+                let start = headline.start();
 
+                if headline.tags().any(|t| t.eq_ignore_ascii_case("TOC")) {
                     self.lens.push(CodeLens {
                         range: self.doc.range_of2(start, start),
                         command: Some(
-                            HeadlineToc {
+                            HeadlineGenerateToc {
                                 headline_offset: start,
                                 url: self.url.clone(),
                             }
                             .into(),
                         ),
+                        data: None,
+                    });
+                }
+
+                if find_logbook(&headline).is_some() {
+                    self.lens.push(CodeLens {
+                        range: self.doc.range_of2(start, start),
+                        command: Some(if headline.clocks().any(|c| c.is_running()) {
+                            ClockingStop {
+                                url: self.url.clone(),
+                                line: self.doc.line_of(start.into()) + 1,
+                            }
+                            .into()
+                        } else {
+                            ClockingStart {
+                                url: self.url.clone(),
+                                line: self.doc.line_of(start.into()) + 1,
+                            }
+                            .into()
+                        }),
                         data: None,
                     });
                 }

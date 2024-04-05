@@ -1,16 +1,7 @@
-mod clocking;
-mod create_headline;
-mod duplicate_headline;
+pub mod clocking;
 pub mod formatting;
-mod headline_toc;
-mod remove_headline;
-mod search_heading;
-mod src_block_detangle;
-mod src_block_execute;
-mod src_block_tangle;
-mod update_headline;
-
-pub mod utils;
+pub mod headline;
+pub mod src_block;
 
 use lsp_types::*;
 use orgize::rowan::ast::AstNode;
@@ -24,7 +15,9 @@ pub(crate) trait Executable: DeserializeOwned {
 
     const TITLE: Option<&'static str> = None;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value>;
+    type Result: Serialize;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Self::Result>;
 }
 
 macro_rules! command {
@@ -39,7 +32,17 @@ macro_rules! command {
             pub async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
                 match self {
                     $(
-                        OrgwiseCommand::$i(i) => Ok(i.execute(server).await?)
+                        OrgwiseCommand::$i(i) => Ok(serde_json::to_value(i.execute(server).await?)?)
+                    ),*
+                }
+            }
+
+            #[cfg(feature="tower")]
+            pub async fn execute_response<S: Server>(self, server: &S) -> anyhow::Result<axum::response::Response> {
+                use axum::{response::IntoResponse, Json};
+                match self {
+                    $(
+                        OrgwiseCommand::$i(i) => Ok(Json(i.execute(server).await?).into_response())
                     ),*
                 }
             }
@@ -51,60 +54,29 @@ macro_rules! command {
                     ),*
                 ]
             }
-        }
 
-        impl<'a> TryFrom<(&'a str, Vec<Value>)> for OrgwiseCommand {
-            type Error = anyhow::Error;
-
-            fn try_from(value: (&'a str, Vec<Value>)) -> Result<Self, Self::Error> {
-                let (name, mut arguments) = value;
-                let Some(tag) = name.strip_prefix("orgwise.") else {
-                    anyhow::bail!("");
-                };
-                let Some(argument) = arguments.pop() else {
-                    anyhow::bail!("");
-                };
-                match tag {
+            pub fn from_value(name: &str, argument: Value) -> Option<Self> {
+                match name {
                     $(
                         $i::NAME => {
-                            Ok(OrgwiseCommand::$i(
-                                serde_json::from_value(argument)?
+                            Some(OrgwiseCommand::$i(
+                                serde_json::from_value(argument).ok()?
                             ))
                         }
                     ),*
-                    _ => {
-                        anyhow::bail!("")
-                    }
-                }
-            }
-        }
-
-        impl Into<Command> for OrgwiseCommand {
-            fn into(self) -> Command {
-                match self {
-                    $(
-                        OrgwiseCommand::$i(i) => {
-                            Command {
-                                title: $i::TITLE.unwrap_or($i::NAME).to_string(),
-                                command: format!("orgwise.{}", $i::NAME),
-                                arguments: Some(vec![serde_json::to_value(i).unwrap()]),
-                            }
-                        }
-                    ),*
+                    _ => None
                 }
             }
         }
 
         $(
-            impl From<$i> for OrgwiseCommand {
-                fn from(cmd: $i) -> OrgwiseCommand {
-                    OrgwiseCommand::$i(cmd)
-                }
-            }
-
             impl Into<Command> for $i {
                 fn into(self) -> Command {
-                    OrgwiseCommand::$i(self).into()
+                    Command {
+                        title: $i::TITLE.unwrap_or($i::NAME).to_string(),
+                        command: format!("orgwise.{}", $i::NAME),
+                        arguments: Some(vec![serde_json::to_value(self).unwrap()]),
+                    }
                 }
             }
         )*
@@ -117,10 +89,12 @@ pub struct SyntaxTree(Url);
 impl Executable for SyntaxTree {
     const NAME: &'static str = "syntax-tree";
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = Option<String>;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Option<String>> {
         match server.documents().get(&self.0) {
-            Some(doc) => Ok(Value::String(format!("{:#?}", doc.org.document().syntax()))),
-            None => Ok(Value::Null),
+            Some(doc) => Ok(Some(format!("{:#?}", doc.org.document().syntax()))),
+            None => Ok(None),
         }
     }
 }
@@ -131,39 +105,42 @@ pub struct PreviewHtml(Url);
 impl Executable for PreviewHtml {
     const NAME: &'static str = "preview-html";
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = Option<String>;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Option<String>> {
         match server.documents().get(&self.0) {
-            Some(doc) => Ok(Value::String(doc.org.to_html())),
-            None => Ok(Value::Null),
+            Some(doc) => Ok(Some(doc.org.to_html())),
+            None => Ok(None),
         }
     }
 }
 
-pub use clocking::ClockingStatus;
-pub use create_headline::CreateHeadline;
-pub use duplicate_headline::DuplicateHeadline;
-pub use headline_toc::HeadlineToc;
-pub use remove_headline::RemoveHeadline;
-pub use search_heading::SearchHeadline;
-pub use src_block_detangle::{SrcBlockDetangle, SrcBlockDetangleAll};
-pub use src_block_execute::{SrcBlockExecute, SrcBlockExecuteAll};
-pub use src_block_tangle::{SrcBlockTangle, SrcBlockTangleAll};
-pub use update_headline::UpdateHeadline;
+pub use clocking::{ClockingStart, ClockingStatus, ClockingStop};
+pub use headline::{
+    HeadlineCreate, HeadlineDuplicate, HeadlineGenerateToc, HeadlineRemove, HeadlineSearch,
+    HeadlineUpdate,
+};
+pub use src_block::{
+    SrcBlockDetangle, SrcBlockDetangleAll, SrcBlockExecute, SrcBlockExecuteAll, SrcBlockTangle,
+    SrcBlockTangleAll,
+};
 
 command!(
-    SearchHeadline,
-    UpdateHeadline,
-    RemoveHeadline,
-    CreateHeadline,
-    DuplicateHeadline,
-    ClockingStatus,
-    HeadlineToc,
     PreviewHtml,
     SyntaxTree,
+    ClockingStart,
+    ClockingStatus,
+    ClockingStop,
+    HeadlineCreate,
+    HeadlineDuplicate,
+    HeadlineGenerateToc,
+    HeadlineRemove,
+    HeadlineSearch,
+    HeadlineUpdate,
     SrcBlockDetangle,
     SrcBlockDetangleAll,
     SrcBlockExecute,
     SrcBlockExecuteAll,
-    SrcBlockTangleAll,
     SrcBlockTangle,
+    SrcBlockTangleAll,
 );

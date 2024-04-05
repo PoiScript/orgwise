@@ -2,6 +2,7 @@ mod base;
 mod cli;
 mod command;
 mod lsp;
+mod utils;
 
 #[cfg(test)]
 mod test;

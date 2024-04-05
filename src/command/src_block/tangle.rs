@@ -7,20 +7,19 @@ use orgize::rowan::{Direction, TextSize};
 use orgize::SyntaxKind;
 use orgize::{ast::SourceBlock, rowan::ast::AstNode};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::fmt::Write;
 
 use crate::base::Server;
 
-use super::utils::{
+use crate::command::Executable;
+use crate::utils::src_block::{
     collect_src_blocks, header_argument, language_comments, property_drawer, property_keyword,
 };
-use super::Executable;
 
 #[derive(Serialize, Deserialize)]
 pub struct SrcBlockTangle {
     pub url: Url,
-    #[serde(with = "crate::command::utils::text_size")]
+    #[serde(with = "crate::utils::text_size")]
     pub block_offset: TextSize,
 }
 
@@ -34,9 +33,11 @@ impl Executable for SrcBlockTangleAll {
 
     const TITLE: Option<&'static str> = Some("Tangle all source blocks");
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let mut i = 0;
@@ -71,7 +72,7 @@ impl Executable for SrcBlockTangleAll {
                 .await;
         }
 
-        Ok(Value::Bool(true))
+        Ok(true)
     }
 }
 
@@ -80,13 +81,15 @@ impl Executable for SrcBlockTangle {
 
     const TITLE: Option<&'static str> = Some("Tangle");
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
             server
                 .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let Some(block) = doc.org.node_at_offset(self.block_offset) else {
@@ -94,7 +97,7 @@ impl Executable for SrcBlockTangle {
                 .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let Some(options) = TangleOptions::new(block, &self.url, server) else {
@@ -102,7 +105,7 @@ impl Executable for SrcBlockTangle {
                 .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         drop(doc);
@@ -126,7 +129,7 @@ impl Executable for SrcBlockTangle {
             )
             .await;
 
-        Ok(Value::Bool(true))
+        Ok(true)
     }
 }
 

@@ -5,28 +5,30 @@ use orgize::{
     SyntaxKind,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::fmt::Write;
 
 use crate::base::Server;
 
-use super::Executable;
+use crate::command::Executable;
+use crate::utils::headline::headline_slug;
 
 #[derive(Deserialize, Serialize)]
-pub struct HeadlineToc {
+pub struct HeadlineGenerateToc {
     pub url: Url,
-    #[serde(with = "crate::command::utils::text_size")]
+    #[serde(with = "crate::utils::text_size")]
     pub headline_offset: TextSize,
 }
 
-impl Executable for HeadlineToc {
+impl Executable for HeadlineGenerateToc {
     const NAME: &'static str = "headline-toc";
 
     const TITLE: Option<&'static str> = Some("Generate TOC");
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let mut indent = 0;
@@ -48,7 +50,7 @@ impl Executable for HeadlineToc {
                 } else {
                     let title = headline.title_raw();
 
-                    let slug = super::utils::headline_slug(&headline);
+                    let slug = headline_slug(&headline);
 
                     let _ = writeln!(&mut output, "{: >indent$}- [[#{slug}][{title}]]", "",);
                 }
@@ -68,7 +70,7 @@ impl Executable for HeadlineToc {
             server.apply_edit(self.url, output, text_range).await?;
         }
 
-        Ok(Value::Bool(true))
+        Ok(true)
     }
 }
 
@@ -92,7 +94,7 @@ async fn test() {
             .into(),
     );
 
-    HeadlineToc {
+    HeadlineGenerateToc {
         headline_offset: 0.into(),
         url: url.clone(),
     }

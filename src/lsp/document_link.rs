@@ -9,7 +9,8 @@ use serde_json::Value;
 
 use crate::base::OrgDocument;
 use crate::base::Server;
-use crate::command::utils::{header_argument, headline_slug};
+use crate::utils::headline::headline_slug;
+use crate::utils::src_block::header_argument;
 
 pub fn document_link<S: Server>(s: &S, params: DocumentLinkParams) -> Option<Vec<DocumentLink>> {
     let doc = s.documents().get(&params.text_document.uri)?;

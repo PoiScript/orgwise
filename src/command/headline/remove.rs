@@ -1,23 +1,24 @@
 use lsp_types::{MessageType, Url};
 use orgize::rowan::ast::AstNode;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::base::Server;
 
-use super::utils::find_headline;
-use super::Executable;
+use crate::command::Executable;
+use crate::utils::headline::find_headline;
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct RemoveHeadline {
+pub struct HeadlineRemove {
     pub url: Url,
     pub line: u32,
 }
 
-impl Executable for RemoveHeadline {
-    const NAME: &'static str = "remove-headline";
+impl Executable for HeadlineRemove {
+    const NAME: &'static str = "headline-remove";
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+    type Result = bool;
+
+    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
         let Some(doc) = server.documents().get(&self.url) else {
             server
                 .log_message(
@@ -26,7 +27,7 @@ impl Executable for RemoveHeadline {
                 )
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         let Some(headline) = find_headline(&doc, self.line) else {
@@ -37,7 +38,7 @@ impl Executable for RemoveHeadline {
                 )
                 .await;
 
-            return Ok(Value::Null);
+            return Ok(false);
         };
 
         drop(doc);
@@ -48,7 +49,7 @@ impl Executable for RemoveHeadline {
             .apply_edit(self.url, String::new(), text_range)
             .await?;
 
-        Ok(Value::Bool(true))
+        Ok(true)
     }
 }
 
@@ -61,7 +62,7 @@ async fn test() {
     let url = Url::parse("test://test.org").unwrap();
     server.add_doc(url.clone(), "** \n* ".into());
 
-    RemoveHeadline {
+    HeadlineRemove {
         line: 1,
         url: url.clone(),
     }
@@ -70,7 +71,7 @@ async fn test() {
     .unwrap();
     assert_eq!(server.get(&url), "* ");
 
-    RemoveHeadline {
+    HeadlineRemove {
         line: 1,
         url: url.clone(),
     }

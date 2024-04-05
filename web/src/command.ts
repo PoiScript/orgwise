@@ -1,16 +1,16 @@
-declare const acquireVsCodeApi: () => any;
+declare const acquireVsCodeApi: () => any | undefined;
 
-const createFetch = () => {
+const createExecuteCommand = () => {
   if (typeof acquireVsCodeApi != "undefined") {
     const vscode = acquireVsCodeApi();
-    let fetchId = 0;
+    let reqId = 0;
 
-    return function fetch<T, A = any>(
+    return function executeCommand<T, A = any>(
       command: string,
-      argument: A
+      argument?: A
     ): Promise<T> {
       return new Promise((resolve) => {
-        const id = ++fetchId;
+        const id = ++reqId;
 
         window.addEventListener("message", (ev) => {
           if (ev.data.id == id) {
@@ -21,14 +21,14 @@ const createFetch = () => {
         vscode.postMessage({
           id,
           command: `orgwise.${command}`,
-          arguments: [argument],
+          arguments: [argument || {}],
         });
       });
     };
   } else {
-    return function fetch<T, A = any>(
+    return function executeCommand<T, A = any>(
       command: string,
-      argument: A
+      argument?: A
     ): Promise<T> {
       return window
         .fetch("http://127.0.0.1:4100/api/command", {
@@ -36,7 +36,7 @@ const createFetch = () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             command,
-            argument,
+            argument: argument || {},
           }),
         })
         .then((res) => res.json());
@@ -44,4 +44,4 @@ const createFetch = () => {
   }
 };
 
-export default createFetch();
+export default createExecuteCommand();
