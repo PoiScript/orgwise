@@ -14,7 +14,7 @@ use std::{
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::command::OrgwiseCommand;
-use crate::{base::Server, cli::environment::CliServer};
+use crate::{backend::Backend, cli::environment::CliBackend};
 
 #[derive(Debug, Args)]
 pub struct Command {
@@ -23,7 +23,7 @@ pub struct Command {
     path: Vec<PathBuf>,
 }
 
-type AppState = Arc<CliServer>;
+type AppState = Arc<CliBackend>;
 
 impl Command {
     pub async fn run(self) -> anyhow::Result<()> {
@@ -34,15 +34,15 @@ impl Command {
 
         log::info!("Listening at {addr:?}");
 
-        let base = CliServer::new(false);
+        let backend = CliBackend::new(false);
 
         for path in &self.path {
-            base.load_org_file(path);
+            backend.load_org_file(path);
         }
 
-        log::info!("Loaded {} org file(s)", base.documents().len());
+        log::info!("Loaded {} org file(s)", backend.documents().len());
 
-        let state = AppState::new(base);
+        let state = AppState::new(backend);
 
         let cors = CorsLayer::new()
             .allow_methods([Method::GET, Method::POST])

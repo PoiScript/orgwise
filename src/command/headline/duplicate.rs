@@ -2,7 +2,7 @@ use lsp_types::{MessageType, Url};
 use orgize::rowan::TextRange;
 use serde::{Deserialize, Serialize};
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 use crate::command::Executable;
 use crate::utils::headline::find_headline;
@@ -18,9 +18,9 @@ impl Executable for HeadlineDuplicate {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
-            server
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find document with url {}", self.url),
@@ -31,7 +31,7 @@ impl Executable for HeadlineDuplicate {
         };
 
         let Some(headline) = find_headline(&doc, self.line) else {
-            server
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find headline in line {}", self.line),
@@ -48,7 +48,7 @@ impl Executable for HeadlineDuplicate {
 
         drop(doc);
 
-        server.apply_edit(self.url, new_text, range).await?;
+        backend.apply_edit(self.url, new_text, range).await?;
 
         Ok(true)
     }
@@ -57,27 +57,27 @@ impl Executable for HeadlineDuplicate {
 #[cfg(test)]
 #[tokio::test]
 async fn test() {
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
-    server.add_doc(url.clone(), "* a\n* b\n * c".into());
+    backend.add_doc(url.clone(), "* a\n* b\n * c".into());
 
     HeadlineDuplicate {
         line: 1,
         url: url.clone(),
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
-    assert_eq!(server.get(&url), "* a\n* a\n* b\n * c");
+    assert_eq!(backend.get(&url), "* a\n* a\n* b\n * c");
 
     HeadlineDuplicate {
         line: 2,
         url: url.clone(),
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
-    assert_eq!(server.get(&url), "* a\n* a\n* a\n* b\n * c");
+    assert_eq!(backend.get(&url), "* a\n* a\n* a\n* b\n * c");
 }

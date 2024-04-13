@@ -16,6 +16,8 @@ import SyntaxTree from "./syntax-tree";
 import WebPanel from "./web-panel";
 
 declare const WEB_EXTENSION: boolean;
+declare const GIT_COMMIT: string;
+declare const BUILD_TIME: string;
 
 export let client: BaseLanguageClient;
 
@@ -29,6 +31,10 @@ export function activate(context: vscode.ExtensionContext) {
     initializationOptions: {
       todoKeywords: configuration.get("orgwise.todoKeywords"),
       doneKeywords: configuration.get("orgwise.doneKeywords"),
+      wasmUrl: vscode.Uri.joinPath(
+        context.extensionUri,
+        "./dist/orgwise_bg.wasm"
+      ).toString(),
     },
   };
 
@@ -91,6 +97,17 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(SyntaxTree.register());
   context.subscriptions.push(PreviewHtml.register(context));
   context.subscriptions.push(WebPanel.register(context));
+
+  vscode.commands.registerCommand("orgwise.show-info-ui", () => {
+    vscode.window.showInformationMessage(`orgwise info:`, {
+      modal: true,
+      detail:
+        `Web Extension: ${WEB_EXTENSION}\n` +
+        `Use CLI: ${configuration.get("orgwise.useCli")}\n` +
+        `Git Commit: ${GIT_COMMIT}\n` +
+        `Build Time: ${BUILD_TIME}`,
+    });
+  });
 }
 
 export function deactivate(): Thenable<void> | undefined {

@@ -5,7 +5,7 @@ use orgize::SyntaxKind;
 use orgize::{ast::Headline, rowan::TextRange};
 use serde::{Deserialize, Serialize};
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 use crate::command::Executable;
 use crate::utils::headline::find_headline;
@@ -26,9 +26,9 @@ impl Executable for HeadlineUpdate {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
-            server
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find document with url {}", self.url),
@@ -39,7 +39,7 @@ impl Executable for HeadlineUpdate {
         };
 
         let Some(headline) = find_headline(&doc, self.line) else {
-            server
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find headline in line {}", self.line),
@@ -58,7 +58,7 @@ impl Executable for HeadlineUpdate {
             .map(|(new_text, text_range)| (self.url.clone(), new_text, text_range))
             .collect();
 
-        server.apply_edits(edits.into_iter()).await?;
+        backend.apply_edits(edits.into_iter()).await?;
 
         Ok(true)
     }
@@ -117,7 +117,7 @@ impl HeadlineUpdate {
     fn edit_section(&self, headline: &Headline) -> Option<(String, TextRange)> {
         let section = self.section.as_ref()?.trim();
 
-        let to_replace = headline.section().map(|s| s.syntax().text_range());
+        let to_replace = headline.section().map(|s| s.text_range());
 
         match (to_replace, section.is_empty()) {
             (Some(old), false) => Some((format!("{section}\n"), old)),
@@ -236,7 +236,7 @@ impl HeadlineUpdate {
 #[cfg(test)]
 #[tokio::test]
 async fn test() {
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
     impl Default for HeadlineUpdate {
         fn default() -> Self {
@@ -252,9 +252,9 @@ async fn test() {
         }
     }
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
-    server.add_doc(url.clone(), "* ".into());
+    backend.add_doc(url.clone(), "* ".into());
 
     // keyword
     {
@@ -262,28 +262,28 @@ async fn test() {
             keyword: Some("DONE".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "* DONE ");
+        assert_eq!(backend.get(&url), "* DONE ");
 
         HeadlineUpdate {
             keyword: Some("TODO".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "* TODO ");
+        assert_eq!(backend.get(&url), "* TODO ");
 
         HeadlineUpdate {
             keyword: Some("".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*  ");
+        assert_eq!(backend.get(&url), "*  ");
     }
 
     // title
@@ -292,28 +292,28 @@ async fn test() {
             title: Some("title".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*   title");
+        assert_eq!(backend.get(&url), "*   title");
 
         HeadlineUpdate {
             title: Some("hello world".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*   hello world");
+        assert_eq!(backend.get(&url), "*   hello world");
 
         HeadlineUpdate {
             title: Some("".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*   ");
+        assert_eq!(backend.get(&url), "*   ");
     }
 
     // priority
@@ -322,28 +322,28 @@ async fn test() {
             priority: Some("A".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*   [#A] ");
+        assert_eq!(backend.get(&url), "*   [#A] ");
 
         HeadlineUpdate {
             priority: Some("B".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*   [#B] ");
+        assert_eq!(backend.get(&url), "*   [#B] ");
 
         HeadlineUpdate {
             priority: Some("".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*    ");
+        assert_eq!(backend.get(&url), "*    ");
     }
 
     // tags
@@ -352,28 +352,28 @@ async fn test() {
             tags: Some(vec!["a".into(), "b".into()]),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*     :a:b:");
+        assert_eq!(backend.get(&url), "*     :a:b:");
 
         HeadlineUpdate {
             tags: Some(vec!["foo".into(), "bar".into()]),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*     :foo:bar:");
+        assert_eq!(backend.get(&url), "*     :foo:bar:");
 
         HeadlineUpdate {
             tags: Some(vec![]),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*     ");
+        assert_eq!(backend.get(&url), "*     ");
     }
 
     // section
@@ -382,27 +382,27 @@ async fn test() {
             section: Some("section".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*     \nsection\n");
+        assert_eq!(backend.get(&url), "*     \nsection\n");
 
         HeadlineUpdate {
             section: Some("long \n \n section".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*     \nlong \n \n section\n");
+        assert_eq!(backend.get(&url), "*     \nlong \n \n section\n");
 
         HeadlineUpdate {
             section: Some("".into()),
             ..Default::default()
         }
-        .execute(&server)
+        .execute(&backend)
         .await
         .unwrap();
-        assert_eq!(server.get(&url), "*     \n");
+        assert_eq!(backend.get(&url), "*     \n");
     }
 }

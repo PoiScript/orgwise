@@ -5,10 +5,13 @@ use orgize::{
     SyntaxKind, SyntaxNode,
 };
 
-use crate::base::Server;
+use crate::backend::Backend;
 
-pub fn folding_range<S: Server>(s: &S, params: FoldingRangeParams) -> Option<Vec<FoldingRange>> {
-    let doc = s.documents().get(&params.text_document.uri)?;
+pub fn folding_range<B: Backend>(
+    backend: &B,
+    params: FoldingRangeParams,
+) -> Option<Vec<FoldingRange>> {
+    let doc = backend.documents().get(&params.text_document.uri)?;
 
     let mut ranges: Vec<FoldingRange> = vec![];
 
@@ -70,14 +73,14 @@ fn get_block_folding_range(syntax: &SyntaxNode) -> (u32, u32) {
 
 #[test]
 fn test() {
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
-    server.add_doc(url.clone(), "\n* a\n\n* b\n\n".into());
+    backend.add_doc(url.clone(), "\n* a\n\n* b\n\n".into());
 
     let ranges = folding_range(
-        &server,
+        &backend,
         FoldingRangeParams {
             text_document: TextDocumentIdentifier { uri: url.clone() },
             partial_result_params: PartialResultParams::default(),
@@ -90,9 +93,9 @@ fn test() {
     assert_eq!(ranges[1].start_line, 3);
     assert_eq!(ranges[1].end_line, 4);
 
-    server.add_doc(url.clone(), "\n\r\n#+begin_src\n#+end_src\n\r\r".into());
+    backend.add_doc(url.clone(), "\n\r\n#+begin_src\n#+end_src\n\r\r".into());
     let ranges = folding_range(
-        &server,
+        &backend,
         FoldingRangeParams {
             text_document: TextDocumentIdentifier { uri: url.clone() },
             partial_result_params: PartialResultParams::default(),

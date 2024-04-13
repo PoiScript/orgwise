@@ -7,7 +7,7 @@ use orgize::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    base::Server,
+    backend::Backend,
     command::Executable,
     utils::{clocking::find_logbook, headline::find_headline},
 };
@@ -27,9 +27,9 @@ impl Executable for ClockingStart {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
-            server
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find document with url {}", self.url),
@@ -40,7 +40,7 @@ impl Executable for ClockingStart {
         };
 
         let Some(headline) = find_headline(&doc, self.line) else {
-            server
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find headline in line {}", self.line),
@@ -74,7 +74,7 @@ impl Executable for ClockingStart {
             }
         })();
 
-        server.apply_edit(self.url, new_text, text_range).await?;
+        backend.apply_edit(self.url, new_text, text_range).await?;
 
         Ok(true)
     }
@@ -87,12 +87,12 @@ async fn test() {
 
     use chrono::TimeDelta;
 
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
 
-    server.add_doc(url.clone(), format!(r#"* a"#,));
+    backend.add_doc(url.clone(), format!(r#"* a"#,));
 
     let now = Local::now().naive_local();
     let _1h_ago = now - TimeDelta::from_std(Duration::from_secs(60 * 60)).unwrap();
@@ -101,7 +101,7 @@ async fn test() {
         url: url.clone(),
         line: 1,
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
 
@@ -109,12 +109,12 @@ async fn test() {
         url: url.clone(),
         line: 1,
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
 
     assert_eq!(
-        server.get(&url),
+        backend.get(&url),
         format!(
             r#"* a
 :LOGBOOK:

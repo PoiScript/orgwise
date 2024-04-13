@@ -123,11 +123,6 @@ dependencies:
     specifier: ^3.0.8
     version: 3.0.8
 
-devDependencies:
-  vite-plugin-arraybuffer:
-    specifier: ^0.0.6
-    version: 0.0.6
-
 packages:
 
   /@alloc/quick-lru@5.2.0:
@@ -3364,10 +3359,6 @@ packages:
   /util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
     dev: false
-
-  /vite-plugin-arraybuffer@0.0.6:
-    resolution: {integrity: sha512-2TXAUuHREy29seo6qgm/lGjUpYxJjzsIGHi7cOScMALK6GHIpV2/3KHZ6uaLVAUGwbYQ8rDhNqYgnPkFLxZgnQ==}
-    dev: true
 
   /vite@5.1.1(@types/node@16.11.68):
     resolution: {integrity: sha512-wclpAgY3F1tR7t9LL5CcHC41YPkQIpKUGeIuT8MdNwNZr6OqOTLs7JX5vIHAtzqLWXts0T+GDrh9pN2arneKqg==}

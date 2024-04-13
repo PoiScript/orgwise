@@ -11,7 +11,7 @@ use crate::utils::src_block::{
     property_keyword,
 };
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 #[derive(Serialize, Deserialize)]
 pub struct SrcBlockExecute {
@@ -27,8 +27,8 @@ impl Executable for SrcBlockExecute {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
             return Ok(false);
         };
 
@@ -37,17 +37,19 @@ impl Executable for SrcBlockExecute {
         };
 
         let Some(options) = ExecuteOptions::new(block) else {
-            server
+            backend
                 .log_message(MessageType::ERROR, "Code block can't be executed.".into())
                 .await;
             return Ok(false);
         };
 
-        let new_text = options.run(server).await?;
+        let new_text = options.run(backend).await?;
 
         drop(doc);
 
-        server.apply_edit(self.url, new_text, options.range).await?;
+        backend
+            .apply_edit(self.url, new_text, options.range)
+            .await?;
 
         Ok(true)
     }
@@ -65,8 +67,8 @@ impl Executable for SrcBlockExecuteAll {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
             return Ok(false);
         };
 
@@ -76,13 +78,13 @@ impl Executable for SrcBlockExecuteAll {
         let mut edits = Vec::with_capacity(options.len());
 
         for option in options {
-            let content = option.run(server).await?;
+            let content = option.run(backend).await?;
             edits.push((self.url.clone(), content, option.range));
         }
 
         drop(doc);
 
-        server.apply_edits(edits.into_iter()).await?;
+        backend.apply_edits(edits.into_iter()).await?;
 
         Ok(true)
     }
@@ -139,8 +141,8 @@ impl ExecuteOptions {
         })
     }
 
-    pub async fn run<S: Server>(&self, server: &S) -> anyhow::Result<String> {
-        let output = server.execute(&self.executable, &self.content).await?;
+    pub async fn run<B: Backend>(&self, backend: &B) -> anyhow::Result<String> {
+        let output = backend.execute(&self.executable, &self.content).await?;
 
         let mut output = match self.format {
             Format::Code => once("#+begin_src")

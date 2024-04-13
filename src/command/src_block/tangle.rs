@@ -9,7 +9,7 @@ use orgize::{ast::SourceBlock, rowan::ast::AstNode};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 use crate::command::Executable;
 use crate::utils::src_block::{
@@ -35,8 +35,8 @@ impl Executable for SrcBlockTangleAll {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
             return Ok(false);
         };
 
@@ -46,11 +46,11 @@ impl Executable for SrcBlockTangleAll {
 
         let options: Vec<_> = blocks
             .into_iter()
-            .filter_map(|block| TangleOptions::new(block, &self.url, server))
+            .filter_map(|block| TangleOptions::new(block, &self.url, backend))
             .collect();
 
         for option in options {
-            let (_range, _new_text) = option.run(server).await?;
+            let (_range, _new_text) = option.run(backend).await?;
 
             i += 1;
 
@@ -64,7 +64,7 @@ impl Executable for SrcBlockTangleAll {
         }
 
         if i > 0 {
-            server
+            backend
                 .show_message(
                     MessageType::INFO,
                     format!("Found {} code block from {}", i, self.url),
@@ -83,9 +83,9 @@ impl Executable for SrcBlockTangle {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
-            server
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
+            backend
                 .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
                 .await;
 
@@ -93,15 +93,15 @@ impl Executable for SrcBlockTangle {
         };
 
         let Some(block) = doc.org.node_at_offset(self.block_offset) else {
-            server
+            backend
                 .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
                 .await;
 
             return Ok(false);
         };
 
-        let Some(options) = TangleOptions::new(block, &self.url, server) else {
-            server
+        let Some(options) = TangleOptions::new(block, &self.url, backend) else {
+            backend
                 .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
                 .await;
 
@@ -110,19 +110,19 @@ impl Executable for SrcBlockTangle {
 
         drop(doc);
 
-        let (range, new_text) = options.run(server).await?;
+        let (range, new_text) = options.run(backend).await?;
 
-        let content = server.read_to_string(&options.destination).await?;
+        let content = backend.read_to_string(&options.destination).await?;
 
         if let Some((start, end)) = range {
             let new_content = format!("{}{}{}", &content[0..start], new_text, &content[end..]);
-            server.write(&options.destination, &new_content).await?;
+            backend.write(&options.destination, &new_content).await?;
         } else {
             let new_content = format!("{}{}", &content, new_text);
-            server.write(&options.destination, &new_content).await?;
+            backend.write(&options.destination, &new_content).await?;
         }
 
-        server
+        backend
             .show_message(
                 MessageType::INFO,
                 format!("Write to {}", options.destination),
@@ -146,7 +146,7 @@ struct TangleOptions {
 }
 
 impl TangleOptions {
-    pub fn new<S: Server>(block: SourceBlock, base: &Url, server: &S) -> Option<Self> {
+    pub fn new<B: Backend>(block: SourceBlock, base: &Url, backend: &B) -> Option<Self> {
         let arg1 = block.parameters().unwrap_or_default();
         let arg2 = property_drawer(block.syntax()).unwrap_or_default();
         let arg3 = property_keyword(block.syntax()).unwrap_or_default();
@@ -186,7 +186,7 @@ impl TangleOptions {
                 .fold(String::new(), |a, n| a + &n.to_string())
         });
 
-        let destination = server.resolve_in(tangle, base).ok()?;
+        let destination = backend.resolve_in(tangle, base).ok()?;
 
         let mut permission = None;
         if mode != "no"
@@ -256,11 +256,11 @@ impl TangleOptions {
         })
     }
 
-    pub async fn run<S: Server>(
+    pub async fn run<B: Backend>(
         &self,
-        server: &S,
+        backend: &B,
     ) -> anyhow::Result<(Option<(usize, usize)>, String)> {
-        let content = server.read_to_string(&self.destination).await?;
+        let content = backend.read_to_string(&self.destination).await?;
 
         let mut range = None;
         if let Some((begin, end)) = &self.comment_links {
@@ -334,12 +334,12 @@ impl TangleOptions {
 #[cfg(test)]
 #[tokio::test]
 async fn test() {
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
 
-    server.add_doc(
+    backend.add_doc(
         url.clone(),
         r#"#+begin_src js :tangle ./a.js
 console.log('a')
@@ -352,12 +352,12 @@ console.log('a')
         url: url.clone(),
         block_offset: 0.into(),
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
 
     assert_eq!(
-        server.get(&Url::parse("test://test.org/a.js").unwrap()),
+        backend.get(&Url::parse("test://test.org/a.js").unwrap()),
         "\nconsole.log('a')\n"
     );
 }

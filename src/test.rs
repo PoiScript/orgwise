@@ -4,20 +4,20 @@ use dashmap::DashMap;
 use lsp_types::Url;
 use orgize::{rowan::TextRange, ParseConfig};
 
-use crate::base::{OrgDocument, Server};
+use crate::backend::{Backend, OrgDocument};
 
 #[derive(Default)]
-pub struct TestServer {
+pub struct TestBackend {
     documents: DashMap<Url, OrgDocument>,
 }
 
-impl TestServer {
+impl TestBackend {
     pub fn get(&self, url: &Url) -> String {
         self.documents.get(url).unwrap().org.to_org()
     }
 }
 
-impl Server for TestServer {
+impl Backend for TestBackend {
     fn documents(&self) -> &DashMap<Url, OrgDocument> {
         &self.documents
     }

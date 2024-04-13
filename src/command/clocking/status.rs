@@ -7,7 +7,7 @@ use orgize::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::base::Server;
+use crate::backend::Backend;
 use crate::command::Executable;
 
 #[derive(Deserialize, Serialize)]
@@ -31,10 +31,10 @@ impl Executable for ClockingStatus {
 
     type Result = Result;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Result> {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Result> {
         let mut running: Option<ClockingStatusResult> = None;
 
-        for doc in server.documents() {
+        for doc in backend.documents() {
             doc.traverse(&mut from_fn_with_ctx(|event, ctx| match event {
                 Event::Enter(Container::Headline(hdl)) => {
                     for clock in hdl.clocks() {
@@ -73,12 +73,12 @@ impl Executable for ClockingStatus {
 async fn test() {
     use chrono::NaiveDate;
 
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
 
-    server.add_doc(
+    backend.add_doc(
         url.clone(),
         format!(
             r#"
@@ -111,7 +111,7 @@ CLOCK: [2000-01-07 Web 00:00]
     };
 
     assert_eq!(
-        ClockingStatus {}.execute(&server).await.unwrap(),
+        ClockingStatus {}.execute(&backend).await.unwrap(),
         Result {
             running: Some(r(7, "b", 10)),
         }

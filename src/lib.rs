@@ -1,7 +1,7 @@
 #![allow(async_fn_in_trait)]
 #![allow(dead_code)]
 
-mod base;
+mod backend;
 #[cfg(feature = "tower")]
 mod cli;
 mod command;
@@ -13,8 +13,8 @@ mod test;
 
 use std::collections::HashMap;
 
-use crate::base::Server;
-use base::OrgDocument;
+use crate::backend::Backend;
+use backend::OrgDocument;
 use dashmap::{DashMap, RwLock};
 use lsp_types::{
     notification::*, request::*, ApplyWorkspaceEditParams, LogMessageParams, MessageType,
@@ -51,14 +51,14 @@ extern "C" {
     pub async fn send_notification(this: &Client, method: &str, params: JsValue);
 }
 
-#[wasm_bindgen]
-pub struct WasmLspServer {
+#[wasm_bindgen(js_name = "Backend")]
+pub struct WasmLspBackend {
     client: Client,
     documents: DashMap<Url, OrgDocument>,
     parse_config: RwLock<ParseConfig>,
 }
 
-impl WasmLspServer {
+impl WasmLspBackend {
     async fn send_request<R: Request>(&self, params: R::Params) -> anyhow::Result<R::Result> {
         let value = params.serialize(&SERIALIZER).unwrap();
         let result = self
@@ -75,7 +75,7 @@ impl WasmLspServer {
     }
 }
 
-impl Server for WasmLspServer {
+impl Backend for WasmLspBackend {
     fn home_dir(&self) -> Option<Url> {
         self.client
             .home_dir()
@@ -156,13 +156,13 @@ impl Server for WasmLspServer {
     }
 }
 
-#[wasm_bindgen]
-impl WasmLspServer {
+#[wasm_bindgen(js_class = "Backend")]
+impl WasmLspBackend {
     #[wasm_bindgen(constructor)]
-    pub fn new(client: Client) -> WasmLspServer {
+    pub fn new(client: Client) -> WasmLspBackend {
         console_error_panic_hook::set_once();
 
-        WasmLspServer {
+        WasmLspBackend {
             client,
             documents: DashMap::new(),
             parse_config: RwLock::new(ParseConfig::default()),
@@ -170,15 +170,15 @@ impl WasmLspServer {
     }
 
     #[allow(unused_variables)]
-    #[wasm_bindgen(js_class = Server, js_name = onRequest)]
+    #[wasm_bindgen(js_name = "onRequest")]
     pub async fn on_request(&mut self, method: &str, params: JsValue) -> JsValue {
         fn r<R: Request>(
-            server: &WasmLspServer,
+            backend: &WasmLspBackend,
             params: JsValue,
-            f: impl FnOnce(&WasmLspServer, R::Params) -> R::Result,
+            f: impl FnOnce(&WasmLspBackend, R::Params) -> R::Result,
         ) -> JsValue {
             let params = serde_wasm_bindgen::from_value(params).unwrap();
-            let result = f(server, params);
+            let result = f(backend, params);
             result.serialize(&SERIALIZER).unwrap()
         }
 
@@ -222,15 +222,15 @@ impl WasmLspServer {
     }
 
     #[allow(unused_variables)]
-    #[wasm_bindgen(js_class = Server, js_name = onNotification)]
+    #[wasm_bindgen(js_name = "onNotification")]
     pub async fn on_notification(&mut self, method: &str, params: JsValue) {
         fn n<N: Notification>(
-            server: &WasmLspServer,
+            backend: &WasmLspBackend,
             params: JsValue,
-            f: impl FnOnce(&WasmLspServer, N::Params),
+            f: impl FnOnce(&WasmLspBackend, N::Params),
         ) {
             let params = serde_wasm_bindgen::from_value(params).unwrap();
-            f(server, params)
+            f(backend, params)
         }
 
         match method {

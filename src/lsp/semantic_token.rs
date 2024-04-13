@@ -5,8 +5,8 @@ use orgize::{
     SyntaxKind,
 };
 
-use crate::base::OrgDocument;
-use crate::base::Server;
+use crate::backend::Backend;
+use crate::backend::OrgDocument;
 
 const TIMESTAMP: SemanticTokenType = SemanticTokenType::new("timestamp");
 const HEADLINE_TODO_KEYWORD: SemanticTokenType = SemanticTokenType::new("headlineTodoKeyword");
@@ -24,11 +24,11 @@ pub const TYPES: &[SemanticTokenType] = &[
 
 pub const MODIFIERS: &[SemanticTokenModifier] = &[];
 
-pub fn semantic_tokens_full<S: Server>(
-    s: &S,
+pub fn semantic_tokens_full<B: Backend>(
+    backend: &B,
     params: SemanticTokensParams,
 ) -> Option<SemanticTokensResult> {
-    let doc = s.documents().get(&params.text_document.uri)?;
+    let doc = backend.documents().get(&params.text_document.uri)?;
 
     let mut traverser = SemanticTokenTraverser::new(&doc);
 
@@ -40,11 +40,11 @@ pub fn semantic_tokens_full<S: Server>(
     }))
 }
 
-pub fn semantic_tokens_range<S: Server>(
-    s: &S,
+pub fn semantic_tokens_range<B: Backend>(
+    backend: &B,
     params: SemanticTokensRangeParams,
 ) -> Option<SemanticTokensRangeResult> {
-    let doc = s.documents().get(&params.text_document.uri)?;
+    let doc = backend.documents().get(&params.text_document.uri)?;
 
     let mut traverser = SemanticTokenTraverser::with_range(&doc, params.range);
 
@@ -90,15 +90,15 @@ impl<'a> Traverser for SemanticTokenTraverser<'a> {
         }
 
         match event {
-            Event::Enter(Container::Section(section)) => s!(section.syntax().text_range()),
-            Event::Enter(Container::Paragraph(paragraph)) => s!(paragraph.syntax().text_range()),
-            Event::Enter(Container::OrgTable(table)) => s!(table.syntax().text_range()),
-            Event::Enter(Container::List(list)) => s!(list.syntax().text_range()),
-            Event::Enter(Container::Drawer(drawer)) => s!(drawer.syntax().text_range()),
-            Event::Enter(Container::DynBlock(block)) => s!(block.syntax().text_range()),
+            Event::Enter(Container::Section(section)) => s!(section.text_range()),
+            Event::Enter(Container::Paragraph(paragraph)) => s!(paragraph.text_range()),
+            Event::Enter(Container::OrgTable(table)) => s!(table.text_range()),
+            Event::Enter(Container::List(list)) => s!(list.text_range()),
+            Event::Enter(Container::Drawer(drawer)) => s!(drawer.text_range()),
+            Event::Enter(Container::DynBlock(block)) => s!(block.text_range()),
 
             Event::Enter(Container::Headline(headline)) => {
-                s!(headline.syntax().text_range());
+                s!(headline.text_range());
 
                 for ch in headline.syntax().children_with_tokens() {
                     match ch.kind() {
@@ -116,7 +116,7 @@ impl<'a> Traverser for SemanticTokenTraverser<'a> {
                 }
             }
 
-            Event::Timestamp(timestamp) => m!(timestamp.syntax().text_range(), TIMESTAMP),
+            Event::Timestamp(timestamp) => m!(timestamp.text_range(), TIMESTAMP),
 
             _ => {}
         }

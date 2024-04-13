@@ -6,35 +6,40 @@ import {
   createMessageConnection,
 } from "vscode-languageserver-protocol/browser";
 
-import { WasmLspServer as Server, initSync } from "../../pkg/orgwise";
-
-// @ts-ignore
-import wasm from "../dist/orgwise_bg.wasm?arraybuffer";
+import init, { Backend } from "../../pkg/orgwise";
 
 declare var self: DedicatedWorkerGlobalScope;
-
-initSync(wasm);
 
 const writer = new BrowserMessageWriter(self);
 const reader = new BrowserMessageReader(self);
 
 const connection = createMessageConnection(reader, writer);
 
-const server = new Server({
-  sendNotification: (method: string, params: any) => {
-    return connection.sendNotification(method, params);
-  },
-  sendRequest: (method: string, params: any) => {
-    return connection.sendRequest(method, params);
-  },
+let backend: Backend;
+
+connection.onRequest("initialize", async (params) => {
+  if (!backend) {
+    await init((<any>params).initializationOptions.wasmUrl);
+
+    backend = new Backend({
+      sendNotification: (method: string, params: any) => {
+        return connection.sendNotification(method, params);
+      },
+      sendRequest: (method: string, params: any) => {
+        return connection.sendRequest(method, params);
+      },
+    });
+  }
+
+  return backend.onRequest("initialize", params);
 });
 
 connection.onRequest((method, params) => {
-  return server.onRequest(method, params);
+  return backend.onRequest(method, params);
 });
 
 connection.onNotification((method, params) => {
-  return server.onNotification(method, params);
+  return backend.onNotification(method, params);
 });
 
 connection.listen();

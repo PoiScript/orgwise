@@ -4,7 +4,7 @@ use orgize::{ast::Headline, rowan::TextRange, SyntaxKind};
 use orgize::{ast::SourceBlock, rowan::ast::AstNode};
 use serde::{Deserialize, Serialize};
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 use crate::command::Executable;
 use crate::utils::src_block::{
@@ -25,8 +25,8 @@ impl Executable for SrcBlockDetangle {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
             return Ok(false);
         };
 
@@ -34,8 +34,8 @@ impl Executable for SrcBlockDetangle {
             return Ok(false);
         };
 
-        let Some(option) = DetangleOptions::new(block, &self.url, server) else {
-            server
+        let Some(option) = DetangleOptions::new(block, &self.url, backend) else {
+            backend
                 .log_message(
                     MessageType::WARNING,
                     "Code block can't be detangled.".into(),
@@ -45,11 +45,11 @@ impl Executable for SrcBlockDetangle {
             return Ok(false);
         };
 
-        let (text_range, new_text) = option.run(server).await?;
+        let (text_range, new_text) = option.run(backend).await?;
 
         drop(doc);
 
-        server.apply_edit(self.url, new_text, text_range).await?;
+        backend.apply_edit(self.url, new_text, text_range).await?;
 
         Ok(true)
     }
@@ -67,27 +67,27 @@ impl Executable for SrcBlockDetangleAll {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
             return Ok(false);
         };
 
         let blocks = collect_src_blocks(&doc.org);
         let options: Vec<_> = blocks
             .into_iter()
-            .filter_map(|block| DetangleOptions::new(block, &self.url, server))
+            .filter_map(|block| DetangleOptions::new(block, &self.url, backend))
             .collect();
 
         let mut edits = Vec::with_capacity(options.len());
 
         for option in options {
-            let (range, content) = option.run(server).await?;
+            let (range, content) = option.run(backend).await?;
             edits.push((self.url.clone(), content, range));
         }
 
         drop(doc);
 
-        server.apply_edits(edits.into_iter()).await?;
+        backend.apply_edits(edits.into_iter()).await?;
 
         Ok(true)
     }
@@ -100,7 +100,7 @@ pub struct DetangleOptions {
 }
 
 impl DetangleOptions {
-    pub fn new<S: Server>(block: SourceBlock, base: &Url, server: &S) -> Option<Self> {
+    pub fn new<B: Backend>(block: SourceBlock, base: &Url, backend: &B) -> Option<Self> {
         let arg1 = block.parameters().unwrap_or_default();
         let arg2 = property_drawer(block.syntax()).unwrap_or_default();
         let arg3 = property_keyword(block.syntax()).unwrap_or_default();
@@ -121,7 +121,7 @@ impl DetangleOptions {
 
         let comments = header_argument(&arg1, &arg2, &arg3, ":comments", "no");
 
-        let destination = server.resolve_in(tangle, base).ok()?;
+        let destination = backend.resolve_in(tangle, base).ok()?;
 
         let mut comment_link = None;
         if comments == "yes" || comments == "link" || comments == "noweb" || comments == "both" {
@@ -155,8 +155,8 @@ impl DetangleOptions {
         })
     }
 
-    pub async fn run<S: Server>(self, server: &S) -> anyhow::Result<(TextRange, String)> {
-        let content = server.read_to_string(&self.destination).await?;
+    pub async fn run<B: Backend>(self, backend: &B) -> anyhow::Result<(TextRange, String)> {
+        let content = backend.read_to_string(&self.destination).await?;
 
         if let Some((begin, end)) = &self.comment_link {
             let mut block_content = String::new();

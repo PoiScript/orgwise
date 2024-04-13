@@ -7,7 +7,7 @@ use orgize::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 use crate::command::Executable;
 
@@ -23,10 +23,10 @@ impl Executable for HeadlineSearch {
 
     type Result = Vec<Result>;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Vec<Result>> {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Vec<Result>> {
         let mut results = vec![];
 
-        let iter = server.documents().iter().filter(|doc| {
+        let iter = backend.documents().iter().filter(|doc| {
             !matches!(
                 &self.url,
                 Some(url) if url != doc.key()

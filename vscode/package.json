@@ -41,6 +41,10 @@
       {
         "command": "orgwise.web-panel-ui",
         "title": "Orgwise: Show Web Panel"
+      },
+      {
+        "command": "orgwise.show-info-ui",
+        "title": "Orgwise: Show Info"
       }
     ],
     "languages": [

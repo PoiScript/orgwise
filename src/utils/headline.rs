@@ -1,7 +1,7 @@
 use lsp_types::Position;
 use orgize::ast::Headline;
 
-use crate::base::OrgDocument;
+use crate::backend::OrgDocument;
 
 pub fn find_headline(doc: &OrgDocument, line: u32) -> Option<Headline> {
     let offset = doc.offset_of(Position {

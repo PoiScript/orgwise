@@ -1,8 +1,7 @@
 use lsp_types::{MessageType, Url};
-use orgize::rowan::ast::AstNode;
 use serde::{Deserialize, Serialize};
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 use crate::command::Executable;
 use crate::utils::headline::find_headline;
@@ -18,9 +17,9 @@ impl Executable for HeadlineRemove {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
-            server
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find document with url {}", self.url),
@@ -31,7 +30,7 @@ impl Executable for HeadlineRemove {
         };
 
         let Some(headline) = find_headline(&doc, self.line) else {
-            server
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find headline in line {}", self.line),
@@ -43,9 +42,9 @@ impl Executable for HeadlineRemove {
 
         drop(doc);
 
-        let text_range = (move || headline.syntax().text_range())();
+        let text_range = (move || headline.text_range())();
 
-        server
+        backend
             .apply_edit(self.url, String::new(), text_range)
             .await?;
 
@@ -56,27 +55,27 @@ impl Executable for HeadlineRemove {
 #[cfg(test)]
 #[tokio::test]
 async fn test() {
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
-    server.add_doc(url.clone(), "** \n* ".into());
+    backend.add_doc(url.clone(), "** \n* ".into());
 
     HeadlineRemove {
         line: 1,
         url: url.clone(),
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
-    assert_eq!(server.get(&url), "* ");
+    assert_eq!(backend.get(&url), "* ");
 
     HeadlineRemove {
         line: 1,
         url: url.clone(),
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
-    assert_eq!(server.get(&url), "");
+    assert_eq!(backend.get(&url), "");
 }

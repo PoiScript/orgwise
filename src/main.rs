@@ -1,4 +1,4 @@
-mod base;
+mod backend;
 mod cli;
 mod command;
 mod lsp;

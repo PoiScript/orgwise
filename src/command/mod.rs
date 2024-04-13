@@ -8,7 +8,7 @@ use orgize::rowan::ast::AstNode;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 pub(crate) trait Executable: DeserializeOwned {
     const NAME: &'static str;
@@ -17,7 +17,7 @@ pub(crate) trait Executable: DeserializeOwned {
 
     type Result: Serialize;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Self::Result>;
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Self::Result>;
 }
 
 macro_rules! command {
@@ -29,20 +29,20 @@ macro_rules! command {
         }
 
         impl OrgwiseCommand {
-            pub async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
+            pub async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Value> {
                 match self {
                     $(
-                        OrgwiseCommand::$i(i) => Ok(serde_json::to_value(i.execute(server).await?)?)
+                        OrgwiseCommand::$i(i) => Ok(serde_json::to_value(i.execute(backend).await?)?)
                     ),*
                 }
             }
 
             #[cfg(feature="tower")]
-            pub async fn execute_response<S: Server>(self, server: &S) -> anyhow::Result<axum::response::Response> {
+            pub async fn execute_response<B: Backend>(self, backend: &B) -> anyhow::Result<axum::response::Response> {
                 use axum::{response::IntoResponse, Json};
                 match self {
                     $(
-                        OrgwiseCommand::$i(i) => Ok(Json(i.execute(server).await?).into_response())
+                        OrgwiseCommand::$i(i) => Ok(Json(i.execute(backend).await?).into_response())
                     ),*
                 }
             }
@@ -91,8 +91,8 @@ impl Executable for SyntaxTree {
 
     type Result = Option<String>;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Option<String>> {
-        match server.documents().get(&self.0) {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Option<String>> {
+        match backend.documents().get(&self.0) {
             Some(doc) => Ok(Some(format!("{:#?}", doc.org.document().syntax()))),
             None => Ok(None),
         }
@@ -107,8 +107,8 @@ impl Executable for PreviewHtml {
 
     type Result = Option<String>;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Option<String>> {
-        match server.documents().get(&self.0) {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Option<String>> {
+        match backend.documents().get(&self.0) {
             Some(doc) => Ok(Some(doc.org.to_html())),
             None => Ok(None),
         }

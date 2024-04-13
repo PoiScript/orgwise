@@ -7,7 +7,7 @@ use orgize::{
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 use crate::command::Executable;
 use crate::utils::headline::headline_slug;
@@ -26,8 +26,8 @@ impl Executable for HeadlineGenerateToc {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
             return Ok(false);
         };
 
@@ -67,7 +67,7 @@ impl Executable for HeadlineGenerateToc {
         drop(doc);
 
         if let Some(text_range) = edit_range {
-            server.apply_edit(self.url, output, text_range).await?;
+            backend.apply_edit(self.url, output, text_range).await?;
         }
 
         Ok(true)
@@ -77,11 +77,11 @@ impl Executable for HeadlineGenerateToc {
 #[cfg(test)]
 #[tokio::test]
 async fn test() {
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
-    server.add_doc(
+    backend.add_doc(
         url.clone(),
         r#"* toc
 * a
@@ -98,11 +98,11 @@ async fn test() {
         headline_offset: 0.into(),
         url: url.clone(),
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
     assert_eq!(
-        server.get(&url),
+        backend.get(&url),
         r#"* toc
 #+begin_quote
 - [[#a][a]]

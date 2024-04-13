@@ -1,4 +1,3 @@
-
 use orgize::rowan::TextSize;
 use serde::de::Deserializer;
 use serde::ser::Serializer;

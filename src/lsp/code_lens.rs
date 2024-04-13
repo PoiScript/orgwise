@@ -8,11 +8,11 @@ use crate::command::{
     ClockingStop, HeadlineGenerateToc, SrcBlockDetangle, SrcBlockExecute, SrcBlockTangle,
 };
 use crate::utils::src_block::{header_argument, property_drawer, property_keyword};
-use crate::{base::OrgDocument, utils::clocking::find_logbook};
-use crate::{base::Server, command::ClockingStart};
+use crate::{backend::Backend, command::ClockingStart};
+use crate::{backend::OrgDocument, utils::clocking::find_logbook};
 
-pub fn code_lens<S: Server>(s: &S, params: CodeLensParams) -> Option<Vec<CodeLens>> {
-    let doc = s.documents().get(&params.text_document.uri)?;
+pub fn code_lens<B: Backend>(backend: &B, params: CodeLensParams) -> Option<Vec<CodeLens>> {
+    let doc = backend.documents().get(&params.text_document.uri)?;
 
     let mut traverser = CodeLensTraverser {
         url: params.text_document.uri,
@@ -25,7 +25,7 @@ pub fn code_lens<S: Server>(s: &S, params: CodeLensParams) -> Option<Vec<CodeLen
     Some(traverser.lens)
 }
 
-pub fn code_lens_resolve<S: Server>(_: &S, params: CodeLens) -> CodeLens {
+pub fn code_lens_resolve<B: Backend>(_: &B, params: CodeLens) -> CodeLens {
     params
 }
 

@@ -1,9 +1,8 @@
 // Node.js implementation for orgwise lsp server
 
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
 import {
   IPCMessageReader,
   IPCMessageWriter,
@@ -11,44 +10,53 @@ import {
 } from "vscode-languageserver-protocol/node";
 import { URI } from "vscode-uri";
 
-import { WasmLspServer as Server, initSync } from "../../pkg/orgwise";
-
-const buffer = readFileSync(resolve(__dirname, "./orgwise_bg.wasm"));
-initSync(buffer);
+import { Backend, initSync } from "../../pkg/orgwise";
 
 const writer = new IPCMessageWriter(process);
 const reader = new IPCMessageReader(process);
 
 const connection = createMessageConnection(reader, writer);
 
-const server = new Server({
-  sendNotification: (method: string, params: any) =>
-    connection.sendNotification(method, params),
+let backend: Backend;
 
-  sendRequest: (method: string, params: any) =>
-    connection.sendRequest(method, params),
+connection.onRequest("initialize", async (params) => {
+  if (!backend) {
+    const path = URI.parse((<any>params).initializationOptions.wasmUrl).fsPath;
+    const buffer = await readFile(path);
+    initSync(buffer);
 
-  homeDir: () => URI.file(homedir()).toString() + "/",
+    backend = new Backend({
+      sendNotification: (method: string, params: any) =>
+        connection.sendNotification(method, params),
 
-  readToString: async (url: string) => {
-    const path = URI.parse(url).fsPath;
-    if (existsSync(path)) {
-      return readFile(path, { encoding: "utf-8" });
-    } else {
-      return "";
-    }
-  },
+      sendRequest: (method: string, params: any) =>
+        connection.sendRequest(method, params),
 
-  write: (url: string, content: string) =>
-    writeFile(URI.parse(url).fsPath, content),
+      homeDir: () => URI.file(homedir()).toString() + "/",
+
+      readToString: async (url: string) => {
+        const path = URI.parse(url).fsPath;
+        if (existsSync(path)) {
+          return readFile(path, { encoding: "utf-8" });
+        } else {
+          return "";
+        }
+      },
+
+      write: (url: string, content: string) =>
+        writeFile(URI.parse(url).fsPath, content),
+    });
+  }
+
+  return backend.onRequest("initialize", params);
 });
 
 connection.onRequest((method, params) => {
-  return server.onRequest(method, params);
+  return backend.onRequest(method, params);
 });
 
 connection.onNotification((method, params) => {
-  return server.onNotification(method, params);
+  return backend.onNotification(method, params);
 });
 
 connection.listen();

@@ -1,8 +1,11 @@
-use crate::base::Server;
+use crate::backend::Backend;
 use lsp_types::*;
 
-pub fn formatting<S: Server>(s: &S, params: DocumentFormattingParams) -> Option<Vec<TextEdit>> {
-    let doc = s.documents().get(&params.text_document.uri)?;
+pub fn formatting<B: Backend>(
+    backend: &B,
+    params: DocumentFormattingParams,
+) -> Option<Vec<TextEdit>> {
+    let doc = backend.documents().get(&params.text_document.uri)?;
 
     let edits = crate::command::formatting::formatting(&doc.org)
         .into_iter()

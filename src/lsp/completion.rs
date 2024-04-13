@@ -1,8 +1,8 @@
-use crate::base::Server;
+use crate::backend::Backend;
 use lsp_types::*;
 
-pub fn completion<S: Server>(s: &S, params: CompletionParams) -> Option<CompletionResponse> {
-    let doc = s
+pub fn completion<B: Backend>(backend: &B, params: CompletionParams) -> Option<CompletionResponse> {
+    let doc = backend
         .documents()
         .get(&params.text_document_position.text_document.uri)?;
 
@@ -56,7 +56,7 @@ pub fn completion<S: Server>(s: &S, params: CompletionParams) -> Option<Completi
     }]))
 }
 
-pub fn completion_resolve<S: Server>(_: &S, params: CompletionItem) -> CompletionItem {
+pub fn completion_resolve<B: Backend>(_: &B, params: CompletionItem) -> CompletionItem {
     params
 }
 

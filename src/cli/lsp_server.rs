@@ -7,18 +7,16 @@ use serde_json::Value;
 use std::collections::HashMap;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 
-use crate::base::OrgDocument;
-
-use crate::base::Server as BaseS;
+use crate::backend::{Backend, OrgDocument};
 use crate::lsp;
 
-struct TowerLspServer {
+struct TowerLspBackend {
     client: Client,
     documents: DashMap<Url, OrgDocument>,
     parse_config: RwLock<ParseConfig>,
 }
 
-impl BaseS for TowerLspServer {
+impl Backend for TowerLspBackend {
     fn home_dir(&self) -> Option<Url> {
         dirs::home_dir().and_then(|d| Url::from_file_path(d).ok())
     }
@@ -118,7 +116,7 @@ impl BaseS for TowerLspServer {
 }
 
 #[tower_lsp::async_trait]
-impl LanguageServer for TowerLspServer {
+impl LanguageServer for TowerLspBackend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
         Ok(lsp::initialize(self, params).await)
     }
@@ -223,7 +221,7 @@ pub async fn start() -> anyhow::Result<()> {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
-    let (service, socket) = LspService::build(|client| TowerLspServer {
+    let (service, socket) = LspService::build(|client| TowerLspBackend {
         client,
         documents: DashMap::new(),
         parse_config: RwLock::new(ParseConfig::default()),

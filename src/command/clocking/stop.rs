@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::FormatNativeDateTime;
-use crate::{base::Server, command::Executable, utils::headline::find_headline};
+use crate::{backend::Backend, command::Executable, utils::headline::find_headline};
 
 #[derive(Deserialize, Serialize)]
 pub struct ClockingStop {
@@ -20,9 +20,9 @@ impl Executable for ClockingStop {
 
     type Result = Value;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<Value> {
-        let Some(doc) = server.documents().get(&self.url) else {
-            server
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Value> {
+        let Some(doc) = backend.documents().get(&self.url) else {
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find document with url {}", self.url),
@@ -33,7 +33,7 @@ impl Executable for ClockingStop {
         };
 
         let Some(headline) = find_headline(&doc, self.line) else {
-            server
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find headline in line {}", self.line),
@@ -70,7 +70,7 @@ impl Executable for ClockingStop {
                             duration.num_hours(),
                             duration.num_minutes() % 60,
                         ),
-                        clock.syntax().text_range(),
+                        clock.text_range(),
                     ))
                 })
                 .collect()
@@ -78,7 +78,7 @@ impl Executable for ClockingStop {
 
         drop(doc);
 
-        server.apply_edits(edits.into_iter()).await?;
+        backend.apply_edits(edits.into_iter()).await?;
 
         Ok(Value::Bool(true))
     }
@@ -91,15 +91,15 @@ async fn test() {
 
     use chrono::TimeDelta;
 
-    use crate::test::TestServer;
+    use crate::test::TestBackend;
 
-    let server = TestServer::default();
+    let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
 
     let now = Local::now().naive_local();
     let _1h_ago = now - TimeDelta::from_std(Duration::from_secs(60 * 60)).unwrap();
 
-    server.add_doc(
+    backend.add_doc(
         url.clone(),
         format!(
             r#"
@@ -118,12 +118,12 @@ CLOCK: {}
         url: url.clone(),
         line: 2,
     }
-    .execute(&server)
+    .execute(&backend)
     .await
     .unwrap();
 
     assert_eq!(
-        server.get(&url),
+        backend.get(&url),
         format!(
             r#"
 * a

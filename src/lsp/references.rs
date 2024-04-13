@@ -5,11 +5,11 @@ use orgize::{
     Org, SyntaxKind, SyntaxToken,
 };
 
-use crate::base::OrgDocument;
-use crate::base::Server;
+use crate::backend::Backend;
+use crate::backend::OrgDocument;
 
-pub fn references<S: Server>(s: &S, params: ReferenceParams) -> Option<Vec<Location>> {
-    let doc = s
+pub fn references<B: Backend>(backend: &B, params: ReferenceParams) -> Option<Vec<Location>> {
+    let doc = backend
         .documents()
         .get(&params.text_document_position.text_document.uri)?;
 
@@ -19,7 +19,7 @@ pub fn references<S: Server>(s: &S, params: ReferenceParams) -> Option<Vec<Locat
 
     let mut locations = vec![];
 
-    for entry in s.documents().iter() {
+    for entry in backend.documents().iter() {
         let mut traverser = ReferencesTraverser {
             doc: entry.value(),
             locations: &mut locations,

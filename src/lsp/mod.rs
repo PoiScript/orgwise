@@ -20,26 +20,27 @@ pub use initialize::*;
 pub use references::*;
 pub use semantic_token::*;
 
-use crate::base::Server;
+use crate::backend::Backend;
 use lsp_types::*;
 
-pub async fn initialized<S: Server>(s: &S) {
-    s.log_message(MessageType::WARNING, "Initialized".into())
+pub async fn initialized<B: Backend>(backend: &B) {
+    backend
+        .log_message(MessageType::WARNING, "Initialized".into())
         .await;
 }
 
-pub fn did_change_configuration<S: Server>(_: &S, _: DidChangeConfigurationParams) {}
+pub fn did_change_configuration<B: Backend>(_: &B, _: DidChangeConfigurationParams) {}
 
-pub fn did_open<S: Server>(s: &S, params: DidOpenTextDocumentParams) {
-    s.add_doc(params.text_document.uri, params.text_document.text);
+pub fn did_open<B: Backend>(backend: &B, params: DidOpenTextDocumentParams) {
+    backend.add_doc(params.text_document.uri, params.text_document.text);
 }
 
-pub async fn did_change<S: Server>(s: &S, params: DidChangeTextDocumentParams) {
+pub async fn did_change<B: Backend>(backend: &B, params: DidChangeTextDocumentParams) {
     for change in params.content_changes {
-        s.update_doc(params.text_document.uri.clone(), change.range, change.text);
+        backend.update_doc(params.text_document.uri.clone(), change.range, change.text);
     }
 }
 
-pub fn code_action<S: Server>(_: &S, _: CodeActionParams) -> Option<CodeActionResponse> {
+pub fn code_action<B: Backend>(_: &B, _: CodeActionParams) -> Option<CodeActionResponse> {
     None
 }

@@ -21,13 +21,14 @@ impl OrgDocument {
         }
     }
 
-    pub fn update(&mut self, start: u32, end: u32, text: &str, config: ParseConfig) {
+    pub fn update(&mut self, start: u32, end: u32, text: &str) {
         self.text
             .replace_range((start as usize)..(end as usize), text);
 
         self.line_starts = line_starts(&self.text);
 
-        self.org = config.parse(&self.text);
+        self.org
+            .replace_range(TextRange::new(start.into(), end.into()), text);
     }
 
     pub fn position_of(&self, offset: u32) -> Position {
@@ -173,7 +174,7 @@ console.log(a);
     );
 }
 
-pub trait Server {
+pub trait Backend {
     fn documents(&self) -> &DashMap<Url, OrgDocument>;
 
     fn default_parse_config(&self) -> ParseConfig;
@@ -237,16 +238,15 @@ pub trait Server {
     }
 
     fn update_doc(&self, url: Url, range: Option<Range>, new_text: String) {
-        let config = self.default_parse_config().clone();
-
         if let (Some(mut doc), Some(range)) = (self.documents().get_mut(&url), range) {
             let start = doc.offset_of(range.start);
             let end = doc.offset_of(range.end);
-            doc.update(start, end, &new_text, config);
-            return;
-        }
+            doc.update(start, end, &new_text);
+        } else {
+            let config = self.default_parse_config().clone();
 
-        self.documents()
-            .insert(url, OrgDocument::new(new_text, config));
+            self.documents()
+                .insert(url, OrgDocument::new(new_text, config));
+        }
     }
 }

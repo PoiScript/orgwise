@@ -7,13 +7,15 @@ use orgize::{
 };
 use serde_json::Value;
 
-use crate::base::OrgDocument;
-use crate::base::Server;
+use crate::backend::{Backend, OrgDocument};
 use crate::utils::headline::headline_slug;
 use crate::utils::src_block::header_argument;
 
-pub fn document_link<S: Server>(s: &S, params: DocumentLinkParams) -> Option<Vec<DocumentLink>> {
-    let doc = s.documents().get(&params.text_document.uri)?;
+pub fn document_link<B: Backend>(
+    backend: &B,
+    params: DocumentLinkParams,
+) -> Option<Vec<DocumentLink>> {
+    let doc = backend.documents().get(&params.text_document.uri)?;
 
     let mut traverser = DocumentLinkTraverser {
         doc: &doc,
@@ -26,24 +28,24 @@ pub fn document_link<S: Server>(s: &S, params: DocumentLinkParams) -> Option<Vec
     Some(traverser.links)
 }
 
-pub fn document_link_resolve<S: Server>(s: &S, mut params: DocumentLink) -> DocumentLink {
+pub fn document_link_resolve<B: Backend>(backend: &B, mut params: DocumentLink) -> DocumentLink {
     if params.target.is_some() {
         return params;
     }
 
     if let Some(data) = params.data.take() {
-        params.target = resolve(s, data);
+        params.target = resolve(backend, data);
     }
 
     params
 }
 
-fn resolve<S: Server>(s: &S, data: Value) -> Option<Url> {
+fn resolve<B: Backend>(backend: &B, data: Value) -> Option<Url> {
     let (typ, url, id): (String, Url, String) = serde_json::from_value(data).ok()?;
 
     match (typ.as_str(), url, id) {
         ("headline-id", mut url, id) => {
-            let doc = s.documents().get(&url)?;
+            let doc = backend.documents().get(&url)?;
 
             let mut h = HeadlineIdTraverser {
                 id: id.to_string(),
@@ -60,7 +62,7 @@ fn resolve<S: Server>(s: &S, data: Value) -> Option<Url> {
 
             Some(url)
         }
-        ("resolve", base, path) => s.resolve_in(&path, &base).ok(),
+        ("resolve", base, path) => backend.resolve_in(&path, &base).ok(),
         _ => None,
     }
 }

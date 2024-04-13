@@ -2,7 +2,7 @@ use lsp_types::{MessageType, Url};
 use orgize::rowan::TextRange;
 use serde::{Deserialize, Serialize};
 
-use crate::base::Server;
+use crate::backend::Backend;
 
 use crate::command::Executable;
 
@@ -21,9 +21,9 @@ impl Executable for HeadlineCreate {
 
     type Result = bool;
 
-    async fn execute<S: Server>(self, server: &S) -> anyhow::Result<bool> {
-        let Some(doc) = server.documents().get(&self.url) else {
-            server
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
+        let Some(doc) = backend.documents().get(&self.url) else {
+            backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find document with url {}", self.url),
@@ -71,7 +71,7 @@ impl Executable for HeadlineCreate {
 
         drop(doc);
 
-        server
+        backend
             .apply_edit(self.url, s, TextRange::new(end, end))
             .await?;
 

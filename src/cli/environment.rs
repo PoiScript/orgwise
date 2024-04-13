@@ -4,17 +4,17 @@ use lsp_types::{MessageType, Url};
 use orgize::{rowan::TextRange, ParseConfig};
 use std::{collections::HashMap, fs, path::Path};
 
-use crate::base::{OrgDocument, Server};
+use crate::backend::{Backend, OrgDocument};
 
-pub struct CliServer {
+pub struct CliBackend {
     dry_run: bool,
     documents: DashMap<Url, OrgDocument>,
     parse_config: RwLock<ParseConfig>,
 }
 
-impl CliServer {
+impl CliBackend {
     pub fn new(dry_run: bool) -> Self {
-        CliServer {
+        CliBackend {
             documents: DashMap::new(),
             dry_run,
             parse_config: RwLock::new(ParseConfig::default()),
@@ -54,7 +54,7 @@ impl CliServer {
     }
 }
 
-impl Server for CliServer {
+impl Backend for CliBackend {
     fn home_dir(&self) -> Option<Url> {
         dirs::home_dir().and_then(|d| Url::from_file_path(d).ok())
     }

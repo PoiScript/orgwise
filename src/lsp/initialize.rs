@@ -3,7 +3,7 @@ use orgize::ParseConfig;
 use serde::{Deserialize, Serialize};
 
 use super::semantic_token;
-use crate::base::Server;
+use crate::backend::Backend;
 use crate::command::OrgwiseCommand;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -15,21 +15,22 @@ pub struct InitializationOptions {
     done_keywords: Vec<String>,
 }
 
-pub async fn initialize<S: Server>(s: &S, params: InitializeParams) -> InitializeResult {
+pub async fn initialize<B: Backend>(backend: &B, params: InitializeParams) -> InitializeResult {
     if let Some(initialization_options) = params
         .initialization_options
         .and_then(|o| serde_json::from_value::<InitializationOptions>(o).ok())
     {
-        s.log_message(
-            MessageType::INFO,
-            format!(
-                "Initialization options: {}",
-                serde_json::to_string(&initialization_options).unwrap_or_default()
-            ),
-        )
-        .await;
+        backend
+            .log_message(
+                MessageType::INFO,
+                format!(
+                    "Initialization options: {}",
+                    serde_json::to_string(&initialization_options).unwrap_or_default()
+                ),
+            )
+            .await;
 
-        s.set_default_parse_config(ParseConfig {
+        backend.set_default_parse_config(ParseConfig {
             todo_keywords: (
                 initialization_options.todo_keywords,
                 initialization_options.done_keywords,

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::command::{Executable, SrcBlockDetangleAll, SrcBlockExecuteAll, SrcBlockTangleAll};
 
-use super::environment::CliServer;
+use super::environment::CliBackend;
 
 #[derive(Debug, Args)]
 pub struct DetangleCommand {
@@ -15,11 +15,11 @@ pub struct DetangleCommand {
 
 impl DetangleCommand {
     pub async fn run(self) -> anyhow::Result<()> {
-        let base = CliServer::new(self.dry_run);
+        let backend = CliBackend::new(self.dry_run);
 
         for path in self.path {
-            if let Some(url) = base.load_org_file(&path) {
-                SrcBlockDetangleAll { url }.execute(&base).await?;
+            if let Some(url) = backend.load_org_file(&path) {
+                SrcBlockDetangleAll { url }.execute(&backend).await?;
             }
         }
 
@@ -37,10 +37,10 @@ pub struct ExecuteCommand {
 
 impl ExecuteCommand {
     pub async fn run(self) -> anyhow::Result<()> {
-        let base = CliServer::new(self.dry_run);
+        let backend = CliBackend::new(self.dry_run);
         for path in self.path {
-            if let Some(url) = base.load_org_file(&path) {
-                SrcBlockExecuteAll { url }.execute(&base).await?;
+            if let Some(url) = backend.load_org_file(&path) {
+                SrcBlockExecuteAll { url }.execute(&backend).await?;
             }
         }
         Ok(())
@@ -57,10 +57,10 @@ pub struct TangleCommand {
 
 impl TangleCommand {
     pub async fn run(self) -> anyhow::Result<()> {
-        let base = CliServer::new(self.dry_run);
+        let backend = CliBackend::new(self.dry_run);
         for path in self.path {
-            if let Some(url) = base.load_org_file(&path) {
-                SrcBlockTangleAll { url }.execute(&base).await?;
+            if let Some(url) = backend.load_org_file(&path) {
+                SrcBlockTangleAll { url }.execute(&backend).await?;
             }
         }
         Ok(())
