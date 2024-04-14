@@ -28,33 +28,35 @@ pub fn semantic_tokens_full<B: Backend>(
     backend: &B,
     params: SemanticTokensParams,
 ) -> Option<SemanticTokensResult> {
-    let doc = backend.documents().get(&params.text_document.uri)?;
+    backend
+        .documents()
+        .get_map(&params.text_document.uri, |doc| {
+            let mut traverser = SemanticTokenTraverser::new(&doc);
 
-    let mut traverser = SemanticTokenTraverser::new(&doc);
+            doc.traverse(&mut traverser);
 
-    doc.traverse(&mut traverser);
-
-    Some(SemanticTokensResult::Tokens(SemanticTokens {
-        result_id: None,
-        data: traverser.tokens,
-    }))
+            SemanticTokensResult::Tokens(SemanticTokens {
+                result_id: None,
+                data: traverser.tokens,
+            })
+        })
 }
 
 pub fn semantic_tokens_range<B: Backend>(
     backend: &B,
     params: SemanticTokensRangeParams,
 ) -> Option<SemanticTokensRangeResult> {
-    let doc = backend.documents().get(&params.text_document.uri)?;
+    backend
+        .documents()
+        .get_map(&params.text_document.uri, |doc| {
+            let mut traverser = SemanticTokenTraverser::with_range(&doc, params.range);
 
-    let mut traverser = SemanticTokenTraverser::with_range(&doc, params.range);
+            doc.traverse(&mut traverser);
 
-    doc.traverse(&mut traverser);
-
-    Some(SemanticTokensRangeResult::Partial(
-        SemanticTokensPartialResult {
-            data: traverser.tokens,
-        },
-    ))
+            SemanticTokensRangeResult::Partial(SemanticTokensPartialResult {
+                data: traverser.tokens,
+            })
+        })
 }
 
 struct SemanticTokenTraverser<'a> {

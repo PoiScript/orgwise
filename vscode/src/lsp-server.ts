@@ -10,14 +10,14 @@ import {
 } from "vscode-languageserver-protocol/node";
 import { URI } from "vscode-uri";
 
-import { Backend, initSync } from "../../pkg/orgwise";
+import { LspBackend, initSync } from "../../pkg/orgwise";
 
 const writer = new IPCMessageWriter(process);
 const reader = new IPCMessageReader(process);
 
 const connection = createMessageConnection(reader, writer);
 
-let backend: Backend;
+let backend: LspBackend;
 
 connection.onRequest("initialize", async (params) => {
   if (!backend) {
@@ -25,7 +25,7 @@ connection.onRequest("initialize", async (params) => {
     const buffer = await readFile(path);
     initSync(buffer);
 
-    backend = new Backend({
+    backend = new LspBackend({
       sendNotification: (method: string, params: any) =>
         connection.sendNotification(method, params),
 

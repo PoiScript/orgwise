@@ -92,10 +92,9 @@ impl Executable for SyntaxTree {
     type Result = Option<String>;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Option<String>> {
-        match backend.documents().get(&self.0) {
-            Some(doc) => Ok(Some(format!("{:#?}", doc.org.document().syntax()))),
-            None => Ok(None),
-        }
+        Ok(backend
+            .documents()
+            .get_map(&self.0, |doc| format!("{:#?}", doc.org.document().syntax())))
     }
 }
 
@@ -108,10 +107,9 @@ impl Executable for PreviewHtml {
     type Result = Option<String>;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Option<String>> {
-        match backend.documents().get(&self.0) {
-            Some(doc) => Ok(Some(doc.org.to_html())),
-            None => Ok(None),
-        }
+        Ok(backend
+            .documents()
+            .get_map(&self.0, |doc| doc.org.to_html()))
     }
 }
 

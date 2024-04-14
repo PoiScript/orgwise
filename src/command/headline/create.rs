@@ -22,7 +22,10 @@ impl Executable for HeadlineCreate {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
+        let Some(end) = backend
+            .documents()
+            .get_map(&self.url, |doc| doc.org.document().end())
+        else {
             backend
                 .log_message(
                     MessageType::WARNING,
@@ -66,10 +69,6 @@ impl Executable for HeadlineCreate {
         }
 
         s.push('\n');
-
-        let end = doc.org.document().end();
-
-        drop(doc);
 
         backend
             .apply_edit(self.url, s, TextRange::new(end, end))

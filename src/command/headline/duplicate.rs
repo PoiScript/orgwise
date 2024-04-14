@@ -19,7 +19,10 @@ impl Executable for HeadlineDuplicate {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
+        let Some(Some(headline)) = backend
+            .documents()
+            .get_map(&self.url, |doc| find_headline(&doc, self.line))
+        else {
             backend
                 .log_message(
                     MessageType::WARNING,
@@ -30,23 +33,10 @@ impl Executable for HeadlineDuplicate {
             return Ok(false);
         };
 
-        let Some(headline) = find_headline(&doc, self.line) else {
-            backend
-                .log_message(
-                    MessageType::WARNING,
-                    format!("cannot find headline in line {}", self.line),
-                )
-                .await;
-
-            return Ok(false);
-        };
-
         let (new_text, range) = (move || {
             let end = headline.end();
             (headline.raw(), TextRange::new(end, end))
         })();
-
-        drop(doc);
 
         backend.apply_edit(self.url, new_text, range).await?;
 
@@ -61,7 +51,7 @@ async fn test() {
 
     let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
-    backend.add_doc(url.clone(), "* a\n* b\n * c".into());
+    backend.documents().insert(url.clone(), "* a\n* b\n * c");
 
     HeadlineDuplicate {
         line: 1,

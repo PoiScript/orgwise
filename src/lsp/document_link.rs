@@ -15,17 +15,19 @@ pub fn document_link<B: Backend>(
     backend: &B,
     params: DocumentLinkParams,
 ) -> Option<Vec<DocumentLink>> {
-    let doc = backend.documents().get(&params.text_document.uri)?;
+    backend
+        .documents()
+        .get_map(&params.text_document.uri.clone(), |doc| {
+            let mut traverser = DocumentLinkTraverser {
+                doc: &doc,
+                links: vec![],
+                base: params.text_document.uri,
+            };
 
-    let mut traverser = DocumentLinkTraverser {
-        doc: &doc,
-        links: vec![],
-        base: params.text_document.uri,
-    };
+            doc.traverse(&mut traverser);
 
-    doc.traverse(&mut traverser);
-
-    Some(traverser.links)
+            traverser.links
+        })
 }
 
 pub fn document_link_resolve<B: Backend>(backend: &B, mut params: DocumentLink) -> DocumentLink {
@@ -45,22 +47,22 @@ fn resolve<B: Backend>(backend: &B, data: Value) -> Option<Url> {
 
     match (typ.as_str(), url, id) {
         ("headline-id", mut url, id) => {
-            let doc = backend.documents().get(&url)?;
+            backend.documents().get_map(&url.clone(), |doc| {
+                let mut h = HeadlineIdTraverser {
+                    id: id.to_string(),
+                    offset: None,
+                };
 
-            let mut h = HeadlineIdTraverser {
-                id: id.to_string(),
-                offset: None,
-            };
+                doc.traverse(&mut h);
 
-            doc.traverse(&mut h);
+                if let Some(offset) = h.offset.take() {
+                    let line = doc.line_of(offset);
+                    // results is zero-based
+                    url.set_fragment(Some(&(line + 1).to_string()));
+                }
 
-            if let Some(offset) = h.offset.take() {
-                let line = doc.line_of(offset);
-                // results is zero-based
-                url.set_fragment(Some(&(line + 1).to_string()));
-            }
-
-            Some(url)
+                url
+            })
         }
         ("resolve", base, path) => backend.resolve_in(&path, &base).ok(),
         _ => None,

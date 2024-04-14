@@ -28,11 +28,10 @@ impl Executable for SrcBlockExecute {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
-            return Ok(false);
-        };
-
-        let Some(block) = doc.org.node_at_offset(self.block_offset) else {
+        let Some(block) = backend
+            .documents()
+            .get_and_then(&self.url, |doc| doc.org.node_at_offset(self.block_offset))
+        else {
             return Ok(false);
         };
 
@@ -44,8 +43,6 @@ impl Executable for SrcBlockExecute {
         };
 
         let new_text = options.run(backend).await?;
-
-        drop(doc);
 
         backend
             .apply_edit(self.url, new_text, options.range)
@@ -68,11 +65,13 @@ impl Executable for SrcBlockExecuteAll {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
+        let Some(blocks) = backend
+            .documents()
+            .get_map(&self.url, |doc| collect_src_blocks(&doc.org))
+        else {
             return Ok(false);
         };
 
-        let blocks = collect_src_blocks(&doc.org);
         let options: Vec<_> = blocks.into_iter().filter_map(ExecuteOptions::new).collect();
 
         let mut edits = Vec::with_capacity(options.len());
@@ -81,8 +80,6 @@ impl Executable for SrcBlockExecuteAll {
             let content = option.run(backend).await?;
             edits.push((self.url.clone(), content, option.range));
         }
-
-        drop(doc);
 
         backend.apply_edits(edits.into_iter()).await?;
 

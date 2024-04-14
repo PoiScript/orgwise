@@ -1,32 +1,25 @@
 use std::collections::HashMap;
 
-use dashmap::DashMap;
 use lsp_types::Url;
-use orgize::{rowan::TextRange, ParseConfig};
+use orgize::rowan::TextRange;
 
-use crate::backend::{Backend, OrgDocument};
+use crate::backend::{Backend, Documents};
 
 #[derive(Default)]
 pub struct TestBackend {
-    documents: DashMap<Url, OrgDocument>,
+    documents: Documents,
 }
 
 impl TestBackend {
     pub fn get(&self, url: &Url) -> String {
-        self.documents.get(url).unwrap().org.to_org()
+        self.documents.get_map(url, |d| d.org.to_org()).unwrap()
     }
 }
 
 impl Backend for TestBackend {
-    fn documents(&self) -> &DashMap<Url, OrgDocument> {
+    fn documents(&self) -> &Documents {
         &self.documents
     }
-
-    fn default_parse_config(&self) -> ParseConfig {
-        ParseConfig::default()
-    }
-
-    fn set_default_parse_config(&self, _: ParseConfig) {}
 
     async fn apply_edits(
         &self,
@@ -47,8 +40,7 @@ impl Backend for TestBackend {
 
             let input = self
                 .documents()
-                .get(url)
-                .map(|d| d.org.to_org())
+                .get_map(url, |d| d.org.to_org())
                 .unwrap_or_default();
             let mut output = String::with_capacity(input.len());
             let mut off = 0;
@@ -63,7 +55,7 @@ impl Backend for TestBackend {
 
             output += &input[off..];
 
-            self.add_doc(url.clone(), output)
+            self.documents.insert(url.clone(), &output)
         }
 
         Ok(())
@@ -72,13 +64,12 @@ impl Backend for TestBackend {
     async fn read_to_string(&self, url: &Url) -> anyhow::Result<String> {
         Ok(self
             .documents()
-            .get(url)
-            .map(|d| d.org.to_org())
+            .get_map(url, |d| d.org.to_org())
             .unwrap_or_default())
     }
 
     async fn write(&self, url: &Url, content: &str) -> anyhow::Result<()> {
-        self.add_doc(url.clone(), content.into());
+        self.documents.insert(url.clone(), content);
         Ok(())
     }
 }

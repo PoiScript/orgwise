@@ -1,4 +1,3 @@
-use dashmap::DashMap;
 use lsp_types::*;
 use orgize::{export::Traverser, Org};
 use orgize::{rowan::TextRange, ParseConfig};
@@ -175,11 +174,7 @@ console.log(a);
 }
 
 pub trait Backend {
-    fn documents(&self) -> &DashMap<Url, OrgDocument>;
-
-    fn default_parse_config(&self) -> ParseConfig;
-
-    fn set_default_parse_config(&self, config: ParseConfig);
+    fn documents(&self) -> &Documents;
 
     fn home_dir(&self) -> Option<Url> {
         None
@@ -230,23 +225,109 @@ pub trait Backend {
         let _ = (executable, content);
         anyhow::bail!("unimplemented")
     }
+}
 
-    fn add_doc(&self, url: Url, content: String) {
-        let config = self.default_parse_config().clone();
-        self.documents()
-            .insert(url, OrgDocument::new(content, config));
+#[derive(Default)]
+pub struct Documents {
+    #[cfg(not(target_arch = "wasm32"))]
+    map: dashmap::DashMap<Url, OrgDocument>,
+    #[cfg(not(target_arch = "wasm32"))]
+    config: dashmap::RwLock<ParseConfig>,
+
+    #[cfg(target_arch = "wasm32")]
+    map: std::cell::RefCell<std::collections::HashMap<Url, OrgDocument>>,
+    #[cfg(target_arch = "wasm32")]
+    config: std::cell::RefCell<ParseConfig>,
+}
+
+impl Documents {
+    pub fn set_default_parse_config(&self, config: ParseConfig) {
+        // let x = std::cell::RefCell::new(ParseConfig::default());
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.config.replace(config);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            *self.config.write() = config;
+        }
     }
 
-    fn update_doc(&self, url: Url, range: Option<Range>, new_text: String) {
-        if let (Some(mut doc), Some(range)) = (self.documents().get_mut(&url), range) {
+    pub fn with<F>(&self, url: &Url, f: F)
+    where
+        F: FnOnce(&OrgDocument),
+    {
+        #[cfg(not(target_arch = "wasm32"))]
+        let map = &self.map;
+        #[cfg(target_arch = "wasm32")]
+        let map = self.map.borrow();
+        map.get(url).inspect(|doc| f(&doc));
+    }
+
+    pub fn get_map<F, T>(&self, url: &Url, f: F) -> Option<T>
+    where
+        F: FnOnce(&OrgDocument) -> T,
+    {
+        #[cfg(not(target_arch = "wasm32"))]
+        let map = &self.map;
+        #[cfg(target_arch = "wasm32")]
+        let map = self.map.borrow();
+        map.get(url).map(|doc| f(&doc))
+    }
+
+    pub fn get_and_then<F, T>(&self, url: &Url, f: F) -> Option<T>
+    where
+        F: FnOnce(&OrgDocument) -> Option<T>,
+    {
+        #[cfg(not(target_arch = "wasm32"))]
+        let map = &self.map;
+        #[cfg(target_arch = "wasm32")]
+        let map = self.map.borrow();
+        map.get(url).and_then(|doc| f(&doc))
+    }
+
+    pub fn insert(&self, url: Url, text: impl AsRef<str>) {
+        #[cfg(not(target_arch = "wasm32"))]
+        let (map, config) = (&self.map, self.config.read().clone());
+        #[cfg(target_arch = "wasm32")]
+        let (mut map, config) = (self.map.borrow_mut(), self.config.borrow().clone());
+        map.insert(url, OrgDocument::new(text, config));
+    }
+
+    pub fn update(&self, url: Url, range: Option<Range>, new_text: impl AsRef<str>) {
+        #[cfg(not(target_arch = "wasm32"))]
+        let (map, config) = (&self.map, self.config.read().clone());
+        #[cfg(target_arch = "wasm32")]
+        let (mut map, config) = (self.map.borrow_mut(), self.config.borrow().clone());
+
+        if let (Some(mut doc), Some(range)) = (map.get_mut(&url), range) {
             let start = doc.offset_of(range.start);
             let end = doc.offset_of(range.end);
-            doc.update(start, end, &new_text);
+            doc.update(start, end, new_text.as_ref());
         } else {
-            let config = self.default_parse_config().clone();
+            map.insert(url, OrgDocument::new(new_text, config));
+        }
+    }
 
-            self.documents()
-                .insert(url, OrgDocument::new(new_text, config));
+    pub fn len(&self) -> usize {
+        #[cfg(not(target_arch = "wasm32"))]
+        let map = &self.map;
+        #[cfg(target_arch = "wasm32")]
+        let map = self.map.borrow();
+        map.len()
+    }
+
+    pub fn for_each<F>(&self, mut f: F)
+    where
+        F: FnMut(&Url, &OrgDocument),
+    {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.map.iter().for_each(|e| f(e.key(), e.value()))
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.map.borrow().iter().for_each(|e| f(e.0, e.1))
         }
     }
 }

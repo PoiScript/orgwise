@@ -1,23 +1,20 @@
 use clap::builder::styling::{AnsiColor, Color, Style};
-use dashmap::{DashMap, RwLock};
 use lsp_types::{MessageType, Url};
-use orgize::{rowan::TextRange, ParseConfig};
+use orgize::rowan::TextRange;
 use std::{collections::HashMap, fs, path::Path};
 
-use crate::backend::{Backend, OrgDocument};
+use crate::backend::{Backend, Documents};
 
 pub struct CliBackend {
     dry_run: bool,
-    documents: DashMap<Url, OrgDocument>,
-    parse_config: RwLock<ParseConfig>,
+    documents: Documents,
 }
 
 impl CliBackend {
     pub fn new(dry_run: bool) -> Self {
         CliBackend {
-            documents: DashMap::new(),
+            documents: Documents::default(),
             dry_run,
-            parse_config: RwLock::new(ParseConfig::default()),
         }
     }
 
@@ -48,7 +45,7 @@ impl CliBackend {
             }
         };
 
-        self.add_doc(url.clone(), content);
+        self.documents.insert(url.clone(), &content);
 
         Some(url)
     }
@@ -124,7 +121,7 @@ impl Backend for CliBackend {
             } else {
                 output += &input[off..];
                 tokio::fs::write(&path, &output).await?;
-                self.update_doc(url.clone(), None, output);
+                self.documents.update(url.clone(), None, &output);
             }
         }
 
@@ -165,15 +162,7 @@ impl Backend for CliBackend {
         Ok(output.to_string())
     }
 
-    fn documents(&self) -> &DashMap<Url, OrgDocument> {
+    fn documents(&self) -> &Documents {
         &self.documents
-    }
-
-    fn default_parse_config(&self) -> ParseConfig {
-        self.parse_config.read().clone()
-    }
-
-    fn set_default_parse_config(&self, config: ParseConfig) {
-        *self.parse_config.write() = config;
     }
 }

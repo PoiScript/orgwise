@@ -26,15 +26,10 @@ impl Executable for HeadlineSearch {
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Vec<Result>> {
         let mut results = vec![];
 
-        let iter = backend.documents().iter().filter(|doc| {
-            !matches!(
-                &self.url,
-                Some(url) if url != doc.key()
-            )
-        });
-
-        for item in iter {
-            let doc = item.value();
+        backend.documents().for_each(|url, doc| {
+            if matches!(&self.url, Some(u) if url != u) {
+                return;
+            }
 
             doc.traverse(&mut from_fn_with_ctx(|event, ctx| {
                 if let Event::Enter(Container::Section(_)) = event {
@@ -67,7 +62,7 @@ impl Executable for HeadlineSearch {
 
                 results.push(Result {
                     title: headline.title_raw(),
-                    url: item.key().clone(),
+                    url: url.clone(),
                     line: doc.line_of(headline.start().into()) + 1,
                     level: headline.level(),
                     priority: headline.priority().map(|t| t.to_string()),
@@ -124,7 +119,7 @@ impl Executable for HeadlineSearch {
                         }),
                 })
             }));
-        }
+        });
 
         Ok(results)
     }

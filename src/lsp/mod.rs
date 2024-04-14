@@ -32,12 +32,16 @@ pub async fn initialized<B: Backend>(backend: &B) {
 pub fn did_change_configuration<B: Backend>(_: &B, _: DidChangeConfigurationParams) {}
 
 pub fn did_open<B: Backend>(backend: &B, params: DidOpenTextDocumentParams) {
-    backend.add_doc(params.text_document.uri, params.text_document.text);
+    backend
+        .documents()
+        .insert(params.text_document.uri, params.text_document.text);
 }
 
-pub async fn did_change<B: Backend>(backend: &B, params: DidChangeTextDocumentParams) {
+pub fn did_change<B: Backend>(backend: &B, params: DidChangeTextDocumentParams) {
     for change in params.content_changes {
-        backend.update_doc(params.text_document.uri.clone(), change.range, change.text);
+        backend
+            .documents()
+            .update(params.text_document.uri.clone(), change.range, change.text);
     }
 }
 

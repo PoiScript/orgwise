@@ -2,19 +2,18 @@ use crate::backend::Backend;
 use lsp_types::*;
 
 pub fn completion<B: Backend>(backend: &B, params: CompletionParams) -> Option<CompletionResponse> {
-    let doc = backend
-        .documents()
-        .get(&params.text_document_position.text_document.uri)?;
+    let filter_text = backend.documents().get_and_then(
+        &params.text_document_position.text_document.uri,
+        |doc| {
+            let offset = doc.offset_of(params.text_document_position.position) as usize;
+            if offset < 2 {
+                return None;
+            }
+            Some(doc.text.get((offset - 2)..offset)?.to_string())
+        },
+    )?;
 
-    let offset = doc.offset_of(params.text_document_position.position) as usize;
-
-    if offset < 2 {
-        return None;
-    }
-
-    let filter_text = doc.text.get((offset - 2)..offset)?;
-
-    let (label, new_text) = match filter_text {
+    let (label, new_text) = match &*filter_text {
         "<a" => (
             "ASCI export block",
             "#+BEGIN_EXPORT ascii\n${0}\n#+END_EXPORT\n",
@@ -44,7 +43,7 @@ pub fn completion<B: Backend>(backend: &B, params: CompletionParams) -> Option<C
         kind: Some(CompletionItemKind::SNIPPET),
         insert_text: Some(new_text.into()),
         insert_text_format: Some(InsertTextFormat::SNIPPET),
-        filter_text: Some(filter_text.into()),
+        filter_text: Some(filter_text),
         text_edit: Some(CompletionTextEdit::Edit(TextEdit {
             new_text: new_text.into(),
             range: Range {

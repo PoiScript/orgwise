@@ -12,17 +12,19 @@ use crate::{backend::Backend, command::ClockingStart};
 use crate::{backend::OrgDocument, utils::clocking::find_logbook};
 
 pub fn code_lens<B: Backend>(backend: &B, params: CodeLensParams) -> Option<Vec<CodeLens>> {
-    let doc = backend.documents().get(&params.text_document.uri)?;
+    backend
+        .documents()
+        .get_map(&params.text_document.uri.clone(), |doc| {
+            let mut traverser = CodeLensTraverser {
+                url: params.text_document.uri,
+                lens: vec![],
+                doc,
+            };
 
-    let mut traverser = CodeLensTraverser {
-        url: params.text_document.uri,
-        lens: vec![],
-        doc: &doc,
-    };
+            doc.traverse(&mut traverser);
 
-    doc.traverse(&mut traverser);
-
-    Some(traverser.lens)
+            traverser.lens
+        })
 }
 
 pub fn code_lens_resolve<B: Backend>(_: &B, params: CodeLens) -> CodeLens {

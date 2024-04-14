@@ -19,17 +19,18 @@ impl Command {
 
         for path in self.path {
             if let Some(url) = backend.load_org_file(&path) {
-                let doc = backend.documents().get(&url).unwrap();
-
-                let edits = formatting::formatting(&doc.org);
-
-                backend
-                    .apply_edits(
-                        edits
-                            .into_iter()
-                            .map(|(range, content)| (url.clone(), content, range)),
-                    )
-                    .await?;
+                if let Some(edits) = backend
+                    .documents()
+                    .get_map(&url, |doc| formatting::formatting(&doc.org))
+                {
+                    backend
+                        .apply_edits(
+                            edits
+                                .into_iter()
+                                .map(|(range, content)| (url.clone(), content, range)),
+                        )
+                        .await?;
+                }
             }
         }
 

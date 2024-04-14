@@ -28,7 +28,10 @@ impl Executable for ClockingStart {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
+        let Some(Some(headline)) = backend
+            .documents()
+            .get_map(&self.url, |doc| find_headline(&doc, self.line))
+        else {
             backend
                 .log_message(
                     MessageType::WARNING,
@@ -38,19 +41,6 @@ impl Executable for ClockingStart {
 
             return Ok(false);
         };
-
-        let Some(headline) = find_headline(&doc, self.line) else {
-            backend
-                .log_message(
-                    MessageType::WARNING,
-                    format!("cannot find headline in line {}", self.line),
-                )
-                .await;
-
-            return Ok(false);
-        };
-
-        drop(doc);
 
         let now = Local::now().naive_local();
 
@@ -92,7 +82,7 @@ async fn test() {
     let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
 
-    backend.add_doc(url.clone(), format!(r#"* a"#,));
+    backend.documents().insert(url.clone(), r#"* a"#);
 
     let now = Local::now().naive_local();
     let _1h_ago = now - TimeDelta::from_std(Duration::from_secs(60 * 60)).unwrap();

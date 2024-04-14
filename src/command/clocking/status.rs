@@ -34,7 +34,7 @@ impl Executable for ClockingStatus {
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Result> {
         let mut running: Option<ClockingStatusResult> = None;
 
-        for doc in backend.documents() {
+        backend.documents().for_each(|url, doc| {
             doc.traverse(&mut from_fn_with_ctx(|event, ctx| match event {
                 Event::Enter(Container::Headline(hdl)) => {
                     for clock in hdl.clocks() {
@@ -49,7 +49,7 @@ impl Executable for ClockingStatus {
 
                         if clock.is_running() && !matches!(&running, Some(r) if r.start >= start) {
                             running = Some(ClockingStatusResult {
-                                url: doc.key().clone(),
+                                url: url.clone(),
                                 line: doc.line_of(hdl.start().into()) + 1,
                                 start,
                                 title: hdl.title_raw(),
@@ -62,7 +62,7 @@ impl Executable for ClockingStatus {
 
                 _ => {}
             }));
-        }
+        });
 
         Ok(Result { running })
     }
@@ -78,9 +78,9 @@ async fn test() {
     let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
 
-    backend.add_doc(
+    backend.documents().insert(
         url.clone(),
-        format!(
+        &format!(
             r#"
 * a
 :LOGBOOK:

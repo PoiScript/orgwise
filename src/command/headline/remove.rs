@@ -18,7 +18,10 @@ impl Executable for HeadlineRemove {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
+        let Some(headline) = backend
+            .documents()
+            .get_and_then(&self.url, |doc| find_headline(&doc, self.line))
+        else {
             backend
                 .log_message(
                     MessageType::WARNING,
@@ -28,19 +31,6 @@ impl Executable for HeadlineRemove {
 
             return Ok(false);
         };
-
-        let Some(headline) = find_headline(&doc, self.line) else {
-            backend
-                .log_message(
-                    MessageType::WARNING,
-                    format!("cannot find headline in line {}", self.line),
-                )
-                .await;
-
-            return Ok(false);
-        };
-
-        drop(doc);
 
         let text_range = (move || headline.text_range())();
 
@@ -59,7 +49,7 @@ async fn test() {
 
     let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
-    backend.add_doc(url.clone(), "** \n* ".into());
+    backend.documents().insert(url.clone(), "** \n* ");
 
     HeadlineRemove {
         line: 1,

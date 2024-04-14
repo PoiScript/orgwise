@@ -21,22 +21,14 @@ impl Executable for ClockingStop {
     type Result = Value;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Value> {
-        let Some(doc) = backend.documents().get(&self.url) else {
+        let Some(headline) = backend
+            .documents()
+            .get_and_then(&self.url, |doc| find_headline(&doc, self.line))
+        else {
             backend
                 .log_message(
                     MessageType::WARNING,
                     format!("cannot find document with url {}", self.url),
-                )
-                .await;
-
-            return Ok(Value::Null);
-        };
-
-        let Some(headline) = find_headline(&doc, self.line) else {
-            backend
-                .log_message(
-                    MessageType::WARNING,
-                    format!("cannot find headline in line {}", self.line),
                 )
                 .await;
 
@@ -76,8 +68,6 @@ impl Executable for ClockingStop {
                 .collect()
         })();
 
-        drop(doc);
-
         backend.apply_edits(edits.into_iter()).await?;
 
         Ok(Value::Bool(true))
@@ -99,7 +89,7 @@ async fn test() {
     let now = Local::now().naive_local();
     let _1h_ago = now - TimeDelta::from_std(Duration::from_secs(60 * 60)).unwrap();
 
-    backend.add_doc(
+    backend.documents().insert(
         url.clone(),
         format!(
             r#"

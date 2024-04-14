@@ -36,13 +36,14 @@ impl Executable for SrcBlockTangleAll {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
+        let Some(blocks) = backend
+            .documents()
+            .get_map(&self.url, |doc| collect_src_blocks(&doc.org))
+        else {
             return Ok(false);
         };
 
         let mut i = 0;
-
-        let blocks = collect_src_blocks(&doc.org);
 
         let options: Vec<_> = blocks
             .into_iter()
@@ -84,19 +85,10 @@ impl Executable for SrcBlockTangle {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
-            backend
-                .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
-                .await;
-
-            return Ok(false);
-        };
-
-        let Some(block) = doc.org.node_at_offset(self.block_offset) else {
-            backend
-                .show_message(MessageType::ERROR, "Code block can't be tangled.".into())
-                .await;
-
+        let Some(block) = backend
+            .documents()
+            .get_and_then(&self.url, |doc| doc.org.node_at_offset(self.block_offset))
+        else {
             return Ok(false);
         };
 
@@ -107,8 +99,6 @@ impl Executable for SrcBlockTangle {
 
             return Ok(false);
         };
-
-        drop(doc);
 
         let (range, new_text) = options.run(backend).await?;
 
@@ -339,13 +329,12 @@ async fn test() {
     let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
 
-    backend.add_doc(
+    backend.documents().insert(
         url.clone(),
         r#"#+begin_src js :tangle ./a.js
 console.log('a')
 #+end_src
-"#
-        .into(),
+"#,
     );
 
     SrcBlockTangle {

@@ -6,7 +6,7 @@ import {
   createMessageConnection,
 } from "vscode-languageserver-protocol/browser";
 
-import init, { Backend } from "../../pkg/orgwise";
+import init, { LspBackend } from "../../pkg/orgwise";
 
 declare var self: DedicatedWorkerGlobalScope;
 
@@ -15,13 +15,13 @@ const reader = new BrowserMessageReader(self);
 
 const connection = createMessageConnection(reader, writer);
 
-let backend: Backend;
+let backend: LspBackend;
 
 connection.onRequest("initialize", async (params) => {
   if (!backend) {
     await init((<any>params).initializationOptions.wasmUrl);
 
-    backend = new Backend({
+    backend = new LspBackend({
       sendNotification: (method: string, params: any) => {
         return connection.sendNotification(method, params);
       },

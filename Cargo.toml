@@ -12,7 +12,6 @@ exclude = ["editors", "pkg"]
 orgize = { git = "https://github.com/PoiScript/orgize", branch = "v0.10", default-features = false, features = [
     "chrono",
 ] }
-dashmap = { version = "5.1", features = ["raw-api"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
@@ -29,6 +28,7 @@ wasm-bindgen-futures = { version = "0.4.39", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 web-sys = { version = "0.3.68", features = ["console"], optional = true }
 
+dashmap = { version = "5.1", features = ["raw-api"], optional = true }
 tokio = { version = "1.35.1", features = ["fs", "full"], optional = true }
 tower-lsp = { version = "0.20.0", features = ["proposed"], optional = true }
 tempfile = { version = "3.8.1", optional = true }
@@ -62,6 +62,7 @@ tower = [
     "clap-verbosity-flag",
     "log",
     "notify",
+    "dashmap",
 ]
 
 [lib]

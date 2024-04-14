@@ -30,7 +30,7 @@ pub async fn initialize<B: Backend>(backend: &B, params: InitializeParams) -> In
             )
             .await;
 
-        backend.set_default_parse_config(ParseConfig {
+        backend.documents().set_default_parse_config(ParseConfig {
             todo_keywords: (
                 initialization_options.todo_keywords,
                 initialization_options.done_keywords,

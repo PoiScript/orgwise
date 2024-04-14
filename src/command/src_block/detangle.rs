@@ -26,11 +26,10 @@ impl Executable for SrcBlockDetangle {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
-            return Ok(false);
-        };
-
-        let Some(block) = doc.org.node_at_offset(self.block_offset) else {
+        let Some(block) = backend
+            .documents()
+            .get_and_then(&self.url, |doc| doc.org.node_at_offset(self.block_offset))
+        else {
             return Ok(false);
         };
 
@@ -46,8 +45,6 @@ impl Executable for SrcBlockDetangle {
         };
 
         let (text_range, new_text) = option.run(backend).await?;
-
-        drop(doc);
 
         backend.apply_edit(self.url, new_text, text_range).await?;
 
@@ -68,11 +65,13 @@ impl Executable for SrcBlockDetangleAll {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
+        let Some(blocks) = backend
+            .documents()
+            .get_map(&self.url, |doc| collect_src_blocks(&doc.org))
+        else {
             return Ok(false);
         };
 
-        let blocks = collect_src_blocks(&doc.org);
         let options: Vec<_> = blocks
             .into_iter()
             .filter_map(|block| DetangleOptions::new(block, &self.url, backend))
@@ -84,8 +83,6 @@ impl Executable for SrcBlockDetangleAll {
             let (range, content) = option.run(backend).await?;
             edits.push((self.url.clone(), content, range));
         }
-
-        drop(doc);
 
         backend.apply_edits(edits.into_iter()).await?;
 

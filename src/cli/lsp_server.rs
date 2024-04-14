@@ -1,19 +1,16 @@
-use dashmap::{DashMap, RwLock};
 use lsp_types::notification::ShowMessage;
 use lsp_types::{notification::LogMessage, request::ApplyWorkspaceEdit};
 use orgize::rowan::TextRange;
-use orgize::ParseConfig;
 use serde_json::Value;
 use std::collections::HashMap;
 use tower_lsp::{jsonrpc::Result, lsp_types::*, Client, LanguageServer, LspService, Server};
 
-use crate::backend::{Backend, OrgDocument};
+use crate::backend::{Backend, Documents};
 use crate::lsp;
 
 struct TowerLspBackend {
     client: Client,
-    documents: DashMap<Url, OrgDocument>,
-    parse_config: RwLock<ParseConfig>,
+    documents: Documents,
 }
 
 impl Backend for TowerLspBackend {
@@ -74,11 +71,10 @@ impl Backend for TowerLspBackend {
         let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
         for (url, new_text, range) in items {
-            if let Some(doc) = self.documents.get(&url) {
-                let edit = TextEdit {
-                    new_text,
-                    range: doc.range_of(range),
-                };
+            if let Some(edit) = self.documents.get_map(&url, |doc| TextEdit {
+                new_text,
+                range: doc.range_of(range),
+            }) {
                 changes
                     .entry(url.clone())
                     .and_modify(|edits| edits.push(edit.clone()))
@@ -99,19 +95,8 @@ impl Backend for TowerLspBackend {
         Ok(())
     }
 
-    fn documents(&self) -> &DashMap<Url, OrgDocument> {
+    fn documents(&self) -> &Documents {
         &self.documents
-    }
-
-    fn default_parse_config(&self) -> ParseConfig {
-        let lock = self.parse_config.read();
-        let config = lock.clone();
-        drop(lock);
-        config
-    }
-
-    fn set_default_parse_config(&self, config: ParseConfig) {
-        *self.parse_config.write() = config;
     }
 }
 
@@ -136,7 +121,7 @@ impl LanguageServer for TowerLspBackend {
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
-        lsp::did_change(self, params).await
+        lsp::did_change(self, params)
     }
 
     async fn did_save(&self, _: DidSaveTextDocumentParams) {}
@@ -223,8 +208,7 @@ pub async fn start() -> anyhow::Result<()> {
 
     let (service, socket) = LspService::build(|client| TowerLspBackend {
         client,
-        documents: DashMap::new(),
-        parse_config: RwLock::new(ParseConfig::default()),
+        documents: Documents::default(),
     })
     .finish();
 

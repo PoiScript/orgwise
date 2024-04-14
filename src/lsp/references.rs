@@ -9,25 +9,26 @@ use crate::backend::Backend;
 use crate::backend::OrgDocument;
 
 pub fn references<B: Backend>(backend: &B, params: ReferenceParams) -> Option<Vec<Location>> {
-    let doc = backend
-        .documents()
-        .get(&params.text_document_position.text_document.uri)?;
-
-    let offset = doc.offset_of(params.text_document_position.position);
-
-    let symbol = locate_symbol(&doc.org, offset)?;
+    let symbol = backend.documents().get_and_then(
+        &params.text_document_position.text_document.uri,
+        |doc| {
+            let offset = doc.offset_of(params.text_document_position.position);
+            locate_symbol(&doc.org, offset)
+        },
+    )?;
 
     let mut locations = vec![];
 
-    for entry in backend.documents().iter() {
+    backend.documents().for_each(|url, doc| {
         let mut traverser = ReferencesTraverser {
-            doc: entry.value(),
+            doc,
             locations: &mut locations,
             symbol: &symbol,
-            url: entry.key(),
+            url,
         };
-        entry.value().traverse(&mut traverser);
-    }
+
+        doc.traverse(&mut traverser);
+    });
 
     Some(locations)
 }

@@ -27,44 +27,42 @@ impl Executable for HeadlineGenerateToc {
     type Result = bool;
 
     async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(doc) = backend.documents().get(&self.url) else {
-            return Ok(false);
-        };
-
-        let mut indent = 0;
         let mut edit_range: Option<TextRange> = None;
         let mut output = String::new();
+        let mut indent = 0;
 
-        doc.traverse(&mut from_fn_with_ctx(|event, ctx| match event {
-            Event::Enter(Container::Headline(headline)) => {
-                if headline.start() == self.headline_offset {
-                    let start = headline
-                        .syntax()
-                        .children_with_tokens()
-                        .find(|n| n.kind() == SyntaxKind::NEW_LINE)
-                        .map(|n| n.text_range().end());
+        let Some(_) = backend.documents().get_map(&self.url, |doc| {
+            doc.traverse(&mut from_fn_with_ctx(|event, ctx| match event {
+                Event::Enter(Container::Headline(headline)) => {
+                    if headline.start() == self.headline_offset {
+                        let start = headline
+                            .syntax()
+                            .children_with_tokens()
+                            .find(|n| n.kind() == SyntaxKind::NEW_LINE)
+                            .map(|n| n.text_range().end());
 
-                    let end = headline.end();
+                        let end = headline.end();
 
-                    edit_range = Some(TextRange::new(start.unwrap_or(end), end));
-                } else {
-                    let title = headline.title_raw();
+                        edit_range = Some(TextRange::new(start.unwrap_or(end), end));
+                    } else {
+                        let title = headline.title_raw();
 
-                    let slug = headline_slug(&headline);
+                        let slug = headline_slug(&headline);
 
-                    let _ = writeln!(&mut output, "{: >indent$}- [[#{slug}][{title}]]", "",);
+                        let _ = writeln!(&mut output, "{: >indent$}- [[#{slug}][{title}]]", "",);
+                    }
+
+                    indent += 2;
                 }
-
-                indent += 2;
-            }
-            Event::Leave(Container::Headline(_)) => indent -= 2,
-            Event::Enter(Container::Section(_)) => ctx.skip(),
-            Event::Enter(Container::Document(_)) => output += "#+begin_quote\n",
-            Event::Leave(Container::Document(_)) => output += "#+end_quote\n\n",
-            _ => {}
-        }));
-
-        drop(doc);
+                Event::Leave(Container::Headline(_)) => indent -= 2,
+                Event::Enter(Container::Section(_)) => ctx.skip(),
+                Event::Enter(Container::Document(_)) => output += "#+begin_quote\n",
+                Event::Leave(Container::Document(_)) => output += "#+end_quote\n\n",
+                _ => {}
+            }));
+        }) else {
+            return Ok(false);
+        };
 
         if let Some(text_range) = edit_range {
             backend.apply_edit(self.url, output, text_range).await?;
@@ -81,7 +79,7 @@ async fn test() {
 
     let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
-    backend.add_doc(
+    backend.documents().insert(
         url.clone(),
         r#"* toc
 * a
@@ -90,8 +88,7 @@ async fn test() {
 * c
 *** d
 ** e
-*** f"#
-            .into(),
+*** f"#,
     );
 
     HeadlineGenerateToc {
