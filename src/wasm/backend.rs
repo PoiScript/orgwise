@@ -1,5 +1,6 @@
 use lsp_types::{MessageType, Url};
 use orgize::rowan::TextRange;
+use orgize::ParseConfig;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -8,6 +9,7 @@ use wasm_bindgen::prelude::*;
 use super::SERIALIZER;
 use crate::backend::{Backend, Documents};
 use crate::command::OrgwiseCommand;
+use crate::lsp;
 
 #[wasm_bindgen]
 extern "C" {
@@ -83,7 +85,7 @@ impl Backend for WasmBackend {
         }
 
         for (url, edits) in changes.iter_mut() {
-            edits.sort_by(|a, b| a.0.start().cmp(&b.0.start()));
+            edits.sort_by_key(|edit| (edit.0.start(), edit.0.end()));
 
             let input = self
                 .methods
@@ -130,6 +132,15 @@ impl WasmBackend {
             methods,
             documents: Documents::default(),
         }
+    }
+
+    #[wasm_bindgen(js_name = "setOptions")]
+    pub fn set_options(&mut self, options: JsValue) {
+        let options: lsp::InitializationOptions = serde_wasm_bindgen::from_value(options).unwrap();
+        self.documents().set_default_parse_config(ParseConfig {
+            todo_keywords: (options.todo_keywords, options.done_keywords),
+            ..Default::default()
+        });
     }
 
     #[wasm_bindgen(js_name = "addOrgFile")]

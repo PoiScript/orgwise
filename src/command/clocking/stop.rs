@@ -1,11 +1,14 @@
-use chrono::Local;
+use chrono::NaiveDateTime;
 use lsp_types::{MessageType, Url};
 use orgize::{ast::Timestamp, rowan::ast::AstNode};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::FormatNativeDateTime;
-use crate::{backend::Backend, command::Executable, utils::headline::find_headline};
+use crate::{
+    backend::Backend,
+    command::Executable,
+    utils::{headline::find_headline, timestamp::FormatInactiveTimestamp},
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct ClockingStop {
@@ -35,7 +38,7 @@ impl Executable for ClockingStop {
             return Ok(Value::Null);
         };
 
-        let now = Local::now().naive_local();
+        let now = now();
 
         let edits: Vec<_> = (move || {
             headline
@@ -57,8 +60,8 @@ impl Executable for ClockingStop {
                         self.url.clone(),
                         format!(
                             "CLOCK: {}--{} => {:0>2}:{:0>2}\n",
-                            FormatNativeDateTime(start),
-                            FormatNativeDateTime(now),
+                            FormatInactiveTimestamp(start),
+                            FormatInactiveTimestamp(now),
                             duration.num_hours(),
                             duration.num_minutes() % 60,
                         ),
@@ -74,6 +77,21 @@ impl Executable for ClockingStop {
     }
 }
 
+#[cfg(not(test))]
+#[inline]
+fn now() -> NaiveDateTime {
+    chrono::Local::now().naive_local()
+}
+
+#[cfg(test)]
+#[inline]
+fn now() -> NaiveDateTime {
+    chrono::NaiveDate::from_ymd_opt(2000, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+}
+
 #[cfg(test)]
 #[tokio::test]
 async fn test() {
@@ -86,7 +104,7 @@ async fn test() {
     let backend = TestBackend::default();
     let url = Url::parse("test://test.org").unwrap();
 
-    let now = Local::now().naive_local();
+    let now = now();
     let _1h_ago = now - TimeDelta::from_std(Duration::from_secs(60 * 60)).unwrap();
 
     backend.documents().insert(
@@ -99,8 +117,8 @@ CLOCK: {}
 CLOCK: {}
 :END:
 "#,
-            FormatNativeDateTime(now),
-            FormatNativeDateTime(_1h_ago)
+            FormatInactiveTimestamp(now),
+            FormatInactiveTimestamp(_1h_ago)
         ),
     );
 
@@ -122,10 +140,10 @@ CLOCK: {}--{} => 00:00
 CLOCK: {}--{} => 01:00
 :END:
 "#,
-            FormatNativeDateTime(now),
-            FormatNativeDateTime(now),
-            FormatNativeDateTime(_1h_ago),
-            FormatNativeDateTime(now),
+            FormatInactiveTimestamp(now),
+            FormatInactiveTimestamp(now),
+            FormatInactiveTimestamp(_1h_ago),
+            FormatInactiveTimestamp(now),
         )
     );
 }

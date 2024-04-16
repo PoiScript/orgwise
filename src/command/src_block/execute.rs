@@ -123,7 +123,7 @@ impl ExecuteOptions {
 
         let range = find_existing_results(&block).unwrap_or_else(|| {
             let end = block.end();
-            TextRange::new(end, end)
+            TextRange::empty(end)
         });
 
         let Some(executable) = language_execute_command(&language) else {

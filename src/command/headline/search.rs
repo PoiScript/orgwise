@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use chrono::NaiveDateTime;
 use lsp_types::Url;
 use orgize::{
     export::{from_fn_with_ctx, Container, Event},
@@ -14,8 +14,8 @@ use crate::command::Executable;
 #[derive(Deserialize, Debug, Serialize)]
 pub struct HeadlineSearch {
     pub url: Option<Url>,
-    pub from: Option<DateTime<Utc>>,
-    pub to: Option<DateTime<Utc>>,
+    pub from: Option<NaiveDateTime>,
+    pub to: Option<NaiveDateTime>,
 }
 
 impl Executable for HeadlineSearch {
@@ -49,13 +49,13 @@ impl Executable for HeadlineSearch {
                     .filter_map(|t| t.start_to_chrono());
 
                 if let Some(from) = self.from {
-                    if ts.clone().all(|t| t < from.naive_local()) {
+                    if ts.clone().all(|t| t < from) {
                         return;
                     }
                 }
 
                 if let Some(to) = self.to {
-                    if ts.clone().all(|t| t > to.naive_local()) {
+                    if ts.clone().all(|t| t > to) {
                         return;
                     }
                 }
@@ -67,24 +67,29 @@ impl Executable for HeadlineSearch {
                     level: headline.level(),
                     priority: headline.priority().map(|t| t.to_string()),
                     tags: headline.tags().map(|t| t.to_string()).collect(),
-                    section: headline.section().map(|t| t.raw()),
+
+                    section: headline.section().map(|t| {
+                        t.syntax()
+                            .children()
+                            .filter(|n| n.kind() != SyntaxKind::DRAWER)
+                            .fold(String::new(), |acc, node| acc + &node.to_string())
+                    }),
 
                     planning: Planning {
                         closed: headline
                             .planning()
                             .and_then(|t| t.closed())
-                            .and_then(|t| t.start_to_chrono())
-                            .map(|t| Utc.from_utc_datetime(&t)),
+                            .and_then(|t| t.start_to_chrono()),
+
                         deadline: headline
                             .planning()
                             .and_then(|t| t.deadline())
-                            .and_then(|t| t.start_to_chrono())
-                            .map(|t| Utc.from_utc_datetime(&t)),
+                            .and_then(|t| t.start_to_chrono()),
+
                         scheduled: headline
                             .planning()
                             .and_then(|t| t.scheduled())
-                            .and_then(|t| t.start_to_chrono())
-                            .map(|t| Utc.from_utc_datetime(&t)),
+                            .and_then(|t| t.start_to_chrono()),
                     },
 
                     clocking: Clocking {
@@ -142,9 +147,9 @@ pub struct Result {
 
 #[derive(Serialize)]
 struct Planning {
-    deadline: Option<DateTime<Utc>>,
-    scheduled: Option<DateTime<Utc>>,
-    closed: Option<DateTime<Utc>>,
+    deadline: Option<NaiveDateTime>,
+    scheduled: Option<NaiveDateTime>,
+    closed: Option<NaiveDateTime>,
 }
 
 #[derive(Serialize)]

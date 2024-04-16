@@ -36,7 +36,7 @@ impl Backend for TestBackend {
         }
 
         for (url, edits) in changes.iter_mut() {
-            edits.sort_by(|a, b| a.0.start().cmp(&b.0.start()));
+            edits.sort_by_key(|edit| (edit.0.start(), edit.0.end()));
 
             let input = self
                 .documents()

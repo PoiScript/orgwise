@@ -17,9 +17,9 @@ pub fn format(node: &SyntaxNode, indent_level: usize, edits: &mut Vec<(TextRange
         expected_bullet @ ("-" | "+" | "*") => {
             if first_item.indent() != 3 * indent_level {
                 edits.push((
-                    TextRange::new(
+                    TextRange::at(
                         first_item.start(),
-                        first_item.start() + TextSize::new(first_item.indent() as u32),
+                        TextSize::new(first_item.indent() as u32),
                     ),
                     " ".repeat(3 * indent_level),
                 ));
@@ -28,10 +28,7 @@ pub fn format(node: &SyntaxNode, indent_level: usize, edits: &mut Vec<(TextRange
             for item in items {
                 if item.indent() != 3 * indent_level {
                     edits.push((
-                        TextRange::new(
-                            item.start(),
-                            item.start() + TextSize::new(item.indent() as u32),
-                        ),
+                        TextRange::at(item.start(), TextSize::new(item.indent() as u32)),
                         " ".repeat(3 * indent_level),
                     ));
                 }
@@ -40,10 +37,7 @@ pub fn format(node: &SyntaxNode, indent_level: usize, edits: &mut Vec<(TextRange
                 let s = bullet.trim_end();
                 if s != expected_bullet {
                     edits.push((
-                        TextRange::new(
-                            bullet.start(),
-                            bullet.start() + TextSize::new(s.len() as u32),
-                        ),
+                        TextRange::at(bullet.start(), TextSize::new(s.len() as u32)),
                         expected_bullet.to_string(),
                     ));
                 }
@@ -55,10 +49,7 @@ pub fn format(node: &SyntaxNode, indent_level: usize, edits: &mut Vec<(TextRange
             for (index, item) in once(first_item).chain(items).enumerate() {
                 if item.indent() != 3 * indent_level {
                     edits.push((
-                        TextRange::new(
-                            item.start(),
-                            item.start() + TextSize::new(item.indent() as u32),
-                        ),
+                        TextRange::at(item.start(), TextSize::new(item.indent() as u32)),
                         " ".repeat(3 * indent_level),
                     ));
                 }
@@ -68,10 +59,7 @@ pub fn format(node: &SyntaxNode, indent_level: usize, edits: &mut Vec<(TextRange
                 let s = bullet.trim_end();
                 if s != expected_bullet {
                     edits.push((
-                        TextRange::new(
-                            bullet.start(),
-                            bullet.start() + TextSize::new(s.len() as u32),
-                        ),
+                        TextRange::at(bullet.start(), TextSize::new(s.len() as u32)),
                         expected_bullet,
                     ));
                 }

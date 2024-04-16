@@ -9,10 +9,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     backend::Backend,
     command::Executable,
-    utils::{clocking::find_logbook, headline::find_headline},
+    utils::{clocking::find_logbook, headline::find_headline, timestamp::FormatInactiveTimestamp},
 };
-
-use super::FormatNativeDateTime;
 
 #[derive(Deserialize, Serialize)]
 pub struct ClockingStart {
@@ -53,13 +51,16 @@ impl Executable for ClockingStart {
                     .map(|x| x.text_range().start())
                     .unwrap_or_else(|| node.text_range().start());
                 (
-                    format!("CLOCK: {}\n", FormatNativeDateTime(now)),
-                    TextRange::new(s, s),
+                    format!("CLOCK: {}\n", FormatInactiveTimestamp(now)),
+                    TextRange::empty(s),
                 )
             } else {
                 (
-                    format!("\n:LOGBOOK:\nCLOCK: {}\n:END:\n", FormatNativeDateTime(now)),
-                    TextRange::new(headline.end(), headline.end()),
+                    format!(
+                        "\n:LOGBOOK:\nCLOCK: {}\n:END:\n",
+                        FormatInactiveTimestamp(now)
+                    ),
+                    TextRange::empty(headline.end()),
                 )
             }
         })();
@@ -112,8 +113,8 @@ CLOCK: {}
 CLOCK: {}
 :END:
 "#,
-            FormatNativeDateTime(now),
-            FormatNativeDateTime(now),
+            FormatInactiveTimestamp(now),
+            FormatInactiveTimestamp(now),
         )
     );
 }

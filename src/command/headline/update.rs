@@ -1,11 +1,15 @@
+use chrono::NaiveDateTime;
 use lsp_types::{MessageType, Url};
 use memchr::memchr2;
-use orgize::rowan::ast::AstNode;
-use orgize::SyntaxKind;
-use orgize::{ast::Headline, rowan::TextRange};
+use orgize::{
+    ast::{Drawer, Headline},
+    rowan::ast::AstNode,
+    rowan::TextRange,
+    SyntaxKind,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::backend::Backend;
+use crate::{backend::Backend, utils::timestamp::FormatActiveTimestamp};
 
 use crate::command::Executable;
 use crate::utils::headline::find_headline;
@@ -19,6 +23,8 @@ pub struct HeadlineUpdate {
     pub title: Option<String>,
     pub section: Option<String>,
     pub tags: Option<Vec<String>>,
+    pub scheduled: Option<NaiveDateTime>,
+    pub deadline: Option<NaiveDateTime>,
 }
 
 impl Executable for HeadlineUpdate {
@@ -58,10 +64,11 @@ impl HeadlineUpdate {
     fn edit(&self, headline: Headline) -> Vec<(String, TextRange)> {
         self.edit_title(&headline)
             .into_iter()
-            .chain(self.edit_priority(&headline))
             .chain(self.edit_keyword(&headline))
-            .chain(self.edit_section(&headline))
+            .chain(self.edit_priority(&headline))
             .chain(self.edit_tags(&headline))
+            .chain(self.edit_planning(&headline))
+            .chain(self.edit_section(&headline))
             .collect()
     }
 
@@ -88,14 +95,8 @@ impl HeadlineUpdate {
                     .syntax()
                     .children_with_tokens()
                     .find(|t| t.kind() == SyntaxKind::NEW_LINE)
-                    .map(|t| {
-                        let s = t.text_range().start();
-                        TextRange::new(s, s)
-                    })
-                    .unwrap_or_else(|| {
-                        let s = headline.end();
-                        TextRange::new(s, s)
-                    });
+                    .map(|t| TextRange::empty(t.text_range().start()))
+                    .unwrap_or_else(|| TextRange::empty(headline.end()));
 
                 Some((format!(" {title}"), text_range))
             }
@@ -105,7 +106,20 @@ impl HeadlineUpdate {
     }
 
     fn edit_section(&self, headline: &Headline) -> Option<(String, TextRange)> {
-        let section = self.section.as_ref()?.trim();
+        let mut section = self.section.as_ref()?.trim().to_string();
+
+        if let Some(s) = headline.section() {
+            for (index, drawer) in s.syntax().children().filter_map(Drawer::cast).enumerate() {
+                if index == 0 {
+                    section.push('\n');
+                }
+                let drawer = drawer.syntax().to_string();
+                section.push_str(&drawer);
+                if !drawer.ends_with(['\n', '\r']) {
+                    section.push('\n');
+                }
+            }
+        }
 
         let to_replace = headline.section().map(|s| s.text_range());
 
@@ -119,13 +133,13 @@ impl HeadlineUpdate {
                 .children_with_tokens()
                 .find(|t| t.kind() == SyntaxKind::NEW_LINE)
                 .map(|t| {
-                    let s = t.text_range().end();
-
-                    Some((format!("{section}\n"), TextRange::new(s, s)))
+                    Some((
+                        format!("{section}\n"),
+                        TextRange::empty(t.text_range().end()),
+                    ))
                 })
                 .unwrap_or_else(|| {
-                    let s = headline.end();
-                    Some((format!("\n{section}\n"), TextRange::new(s, s)))
+                    Some((format!("\n{section}\n"), TextRange::empty(headline.end())))
                 }),
 
             (None, true) => None,
@@ -146,16 +160,20 @@ impl HeadlineUpdate {
             (Some(old), true) => Some((String::new(), old.text_range())),
 
             (None, false) => {
-                let s = headline
-                    .syntax()
-                    .children_with_tokens()
-                    // the second element must be a whitespace
-                    .nth(1)
-                    .unwrap()
-                    .text_range()
-                    .end();
+                if let Some(kw) = headline.todo_keyword() {
+                    Some((format!(" [#{priority}]"), TextRange::empty(kw.end())))
+                } else {
+                    let s = headline
+                        .syntax()
+                        .children_with_tokens()
+                        // the second element must be a whitespace
+                        .nth(1)
+                        .unwrap()
+                        .text_range()
+                        .end();
 
-                Some((format!("[#{priority}] "), TextRange::new(s, s)))
+                    Some((format!("[#{priority}] "), TextRange::empty(s)))
+                }
             }
 
             (None, true) => None,
@@ -212,13 +230,56 @@ impl HeadlineUpdate {
                     .map(|t| t.text_range().start())
                     .unwrap_or_else(|| headline.end());
 
-                Some((
-                    format!(" :{}:", tags.join(":")),
-                    TextRange::new(position, position),
-                ))
+                Some((format!(" :{}:", tags.join(":")), TextRange::empty(position)))
             }
 
             (None, true) => None,
+        }
+    }
+
+    fn edit_planning(&self, headline: &Headline) -> Option<(String, TextRange)> {
+        let to_replace = headline
+            .syntax()
+            .children_with_tokens()
+            .find(|tk| tk.kind() == SyntaxKind::PLANNING);
+
+        let planning = match (self.scheduled, self.deadline) {
+            (Some(scheduled), Some(deadline)) => Some(format!(
+                "SCHEDULED: {} DEADLINE: {}\n",
+                FormatActiveTimestamp(scheduled),
+                FormatActiveTimestamp(deadline)
+            )),
+
+            (Some(scheduled), None) => {
+                Some(format!("SCHEDULED: {}\n", FormatActiveTimestamp(scheduled)))
+            }
+
+            (None, Some(deadline)) => {
+                Some(format!("DEADLINE: {}\n", FormatActiveTimestamp(deadline)))
+            }
+
+            _ => None,
+        };
+
+        match (to_replace, planning) {
+            (Some(old), Some(planning)) => Some((planning, old.text_range())),
+
+            (Some(old), None) => Some((String::new(), old.text_range())),
+
+            (None, Some(mut planning)) => {
+                if let Some(new_line) = headline
+                    .syntax()
+                    .children_with_tokens()
+                    .find(|t| t.kind() == SyntaxKind::NEW_LINE)
+                {
+                    Some((planning, TextRange::empty(new_line.text_range().end())))
+                } else {
+                    planning.insert_str(0, "\n");
+                    Some((planning, TextRange::empty(headline.end())))
+                }
+            }
+
+            _ => None,
         }
     }
 }
@@ -238,6 +299,8 @@ async fn test() {
                 title: None,
                 section: None,
                 tags: None,
+                deadline: None,
+                scheduled: None,
             }
         }
     }
@@ -395,4 +458,24 @@ async fn test() {
         .unwrap();
         assert_eq!(backend.get(&url), "*     \n");
     }
+
+    // update nest headline
+    backend
+        .documents()
+        .insert(url.clone(), "* abc\nsection\n** abc");
+    HeadlineUpdate {
+        title: Some("mon".into()),
+        section: Some("section".into()),
+        line: 3,
+        keyword: Some("TODO".into()),
+        priority: Some("A".into()),
+        ..Default::default()
+    }
+    .execute(&backend)
+    .await
+    .unwrap();
+    assert_eq!(
+        backend.get(&url),
+        "* abc\nsection\n** TODO [#A] mon\nsection\n"
+    );
 }

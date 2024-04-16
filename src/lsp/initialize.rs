@@ -10,9 +10,9 @@ use crate::command::OrgwiseCommand;
 #[serde(rename_all = "camelCase")]
 pub struct InitializationOptions {
     #[serde(default)]
-    todo_keywords: Vec<String>,
+    pub todo_keywords: Vec<String>,
     #[serde(default)]
-    done_keywords: Vec<String>,
+    pub done_keywords: Vec<String>,
 }
 
 pub async fn initialize<B: Backend>(backend: &B, params: InitializeParams) -> InitializeResult {

@@ -89,7 +89,7 @@ impl Backend for CliBackend {
                 anyhow::bail!("Cannot convert Url to PathBuf")
             };
 
-            edits.sort_by(|a, b| a.0.start().cmp(&b.0.start()));
+            edits.sort_by_key(|edit| (edit.0.start(), edit.0.end()));
 
             let input = tokio::fs::read_to_string(&path).await?;
             let mut output = String::with_capacity(input.len());

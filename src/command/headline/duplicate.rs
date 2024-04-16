@@ -33,10 +33,7 @@ impl Executable for HeadlineDuplicate {
             return Ok(false);
         };
 
-        let (new_text, range) = (move || {
-            let end = headline.end();
-            (headline.raw(), TextRange::new(end, end))
-        })();
+        let (new_text, range) = (move || (headline.raw(), TextRange::empty(headline.end())))();
 
         backend.apply_edit(self.url, new_text, range).await?;
 
