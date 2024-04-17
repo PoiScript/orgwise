@@ -1,3 +1,6 @@
 target
 node_modules
+dist
 *.org
+*.wasm
+*.vsix

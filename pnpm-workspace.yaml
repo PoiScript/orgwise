@@ -1,0 +1,4 @@
+packages:
+  - "raycast"
+  - "vscode"
+  - "web"

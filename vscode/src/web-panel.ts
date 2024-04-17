@@ -11,7 +11,7 @@ import {
 
 import { client } from "./extension";
 
-import manifest from "../dist/.vite/manifest.json";
+import manifest from "../dist/web/.vite.manifest.json";
 
 export default class WebPanel {
   public static currentPanel: WebPanel | undefined;
@@ -73,15 +73,11 @@ export default class WebPanel {
           <script
             type="module"
             src="${panel.webview.asWebviewUri(
-              Uri.joinPath(
-                extensionUri,
-                "dist",
-                manifest["web/src/main.tsx"].file
-              )
+              Uri.joinPath(extensionUri, "dist", manifest["src/main.tsx"].file)
             )}"
           ></script>
 
-          ${(manifest["web/src/main.tsx"].css || [])
+          ${(manifest["src/main.tsx"].css || [])
             .map(
               (css) =>
                 `<link

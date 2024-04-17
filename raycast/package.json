@@ -1,0 +1,83 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "orgwise",
+  "title": "Orgwise",
+  "description": "Manage your org-mode files",
+  "icon": "extension-icon.png",
+  "author": "PoiScript",
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "list",
+      "title": "List TODO items",
+      "description": "List TODO items",
+      "mode": "view"
+    },
+    {
+      "name": "create",
+      "title": "Create TODO item",
+      "description": "Create TODO item",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "title",
+          "type": "text",
+          "required": true,
+          "placeholder": "your title"
+        }
+      ]
+    }
+  ],
+  "preferences": [
+    {
+      "name": "orgTodoFile",
+      "title": "File",
+      "description": "Path to your org todo file",
+      "type": "file",
+      "required": true
+    },
+    {
+      "name": "orgTodoKeywords",
+      "title": "TODO keywords",
+      "description": "separated by comma",
+      "type": "textfield",
+      "required": false,
+      "default": "TODO,TASK"
+    },
+    {
+      "name": "orgDoneKeywords",
+      "title": "DONE keywords",
+      "description": "separated by comma",
+      "type": "textfield",
+      "required": false,
+      "default": "DONE,DROP,CANCEL"
+    },
+    {
+      "name": "orgTags",
+      "title": "Tags",
+      "description": "separated by comma",
+      "type": "textfield",
+      "required": false,
+      "default": "financial,fun,personal,shopping,study,work"
+    },
+    {
+      "name": "orgPriorities",
+      "title": "Priorities",
+      "description": "separated by comma",
+      "type": "textfield",
+      "required": false,
+      "default": "A,B,C,D,E"
+    }
+  ],
+  "scripts": {
+    "build": "ray build -e dist -o dist",
+    "install-local": "ray build -e dist",
+    "dev": "ray develop"
+  },
+  "dependencies": {
+    "@raycast/api": "^1.71.3",
+    "typescript": "^5.3.3",
+    "jotai": "^2.7.0",
+    "vscode-uri": "^3.0.8"
+  }
+}

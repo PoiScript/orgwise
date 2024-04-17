@@ -1,39 +1,16 @@
-import react from "@vitejs/plugin-react";
 import * as esbuild from "esbuild";
-import { copyFile } from "node:fs/promises";
-import path from "node:path";
 import { execSync } from "node:child_process";
-import * as vite from "vite";
 
 const GIT_COMMIT = execSync("git rev-parse --short HEAD", {
   encoding: "utf8",
 }).trim();
 const BUILD_TIME = new Date().toISOString();
 
-await vite.build({
-  configFile: false,
-  build: {
-    emptyOutDir: false,
-    rollupOptions: {
-      input: "./web/src/main.tsx",
-    },
-    outDir: "./vscode/dist",
-    minify: true,
-    manifest: true,
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve("./web/src"),
-    },
-  },
-  plugins: [react()],
-});
-
 await esbuild.build({
   bundle: true,
-  entryPoints: ["./vscode/src/extension.ts"],
+  entryPoints: ["./src/extension.ts"],
   external: ["vscode"],
-  outfile: "./vscode/dist/node.js",
+  outfile: "./dist/node.js",
   format: "cjs",
   platform: "node",
   treeShaking: true,
@@ -47,9 +24,9 @@ await esbuild.build({
 
 await esbuild.build({
   bundle: true,
-  entryPoints: ["./vscode/src/extension.ts"],
+  entryPoints: ["./src/extension.ts"],
   external: ["vscode"],
-  outfile: "./vscode/dist/browser.js",
+  outfile: "./dist/browser.js",
   format: "cjs",
   platform: "browser",
   treeShaking: true,
@@ -63,9 +40,9 @@ await esbuild.build({
 
 await esbuild.build({
   bundle: true,
-  entryPoints: ["./vscode/src/lsp-server.ts"],
+  entryPoints: ["./src/lsp-server.ts"],
   external: ["node:*"],
-  outfile: "./vscode/dist/lsp-server.js",
+  outfile: "./dist/lsp-server.js",
   format: "cjs",
   platform: "node",
   treeShaking: true,
@@ -74,12 +51,10 @@ await esbuild.build({
 
 await esbuild.build({
   bundle: true,
-  entryPoints: ["./vscode/src/lsp-worker.ts"],
-  outfile: "./vscode/dist/lsp-worker.js",
+  entryPoints: ["./src/lsp-worker.ts"],
+  outfile: "./dist/lsp-worker.js",
   format: "cjs",
   platform: "browser",
   treeShaking: true,
   minify: true,
 });
-
-await copyFile("./pkg/orgwise_bg.wasm", "./vscode/dist/orgwise_bg.wasm");
