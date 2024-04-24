@@ -26,6 +26,12 @@
           "placeholder": "your title"
         }
       ]
+    },
+    {
+      "name": "stop-clocking",
+      "title": "Stop clocking TODO item",
+      "description": "Stop clocking TODO item",
+      "mode": "no-view"
     }
   ],
   "preferences": [
@@ -67,6 +73,30 @@
       "type": "textfield",
       "required": false,
       "default": "A,B,C,D,E"
+    },
+    {
+      "name": "orgIncludePreviousClock",
+      "title": "Priorities",
+      "description": "separated by comma",
+      "type": "textfield",
+      "required": false,
+      "default": "A,B,C,D,E"
+    },
+    {
+      "name": "orgConfirmBeforeRemove",
+      "description": "Shows a confirmation alert when removing",
+      "label": "Shows a confirmation alert when removing",
+      "type": "checkbox",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "orgConfirmBeforeDuplicate",
+      "description": "Shows a confirmation alert when duplicating",
+      "label": "Shows a confirmation alert when duplicating",
+      "type": "checkbox",
+      "required": false,
+      "default": true
     }
   ],
   "scripts": {

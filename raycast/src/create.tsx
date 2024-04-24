@@ -10,6 +10,11 @@ import { mutate } from "swr";
 import { backendAtom, orgFileAtom } from "./atom";
 import { TaskForm } from "./form";
 
+type CreateResult = {
+  line: number;
+  url: string;
+};
+
 export default function Command(
   props: LaunchProps<{ arguments: Arguments.Create }>
 ) {
@@ -25,10 +30,14 @@ export default function Command(
             url: orgTodoFile.toString(),
             ...values,
           })
-          .then(() => {
+          .then((result: CreateResult) => {
             mutate("headline-search");
             showToast({ title: "TODO item created" });
-            launchCommand({ name: "list", type: LaunchType.UserInitiated });
+            launchCommand({
+              name: "list",
+              type: LaunchType.UserInitiated,
+              context: { selectedItemId: result.url + "#" + result.line },
+            });
           });
       }}
     />

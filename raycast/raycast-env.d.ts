@@ -17,7 +17,13 @@ type ExtensionPreferences = {
   /** Tags - separated by comma */
   "orgTags": string,
   /** Priorities - separated by comma */
-  "orgPriorities": string
+  "orgPriorities": string,
+  /** Priorities - separated by comma */
+  "orgIncludePreviousClock": string,
+  /**  - Shows a confirmation alert when removing */
+  "orgConfirmBeforeRemove": boolean,
+  /**  - Shows a confirmation alert when duplicating */
+  "orgConfirmBeforeDuplicate": boolean
 }
 
 /** Preferences accessible in all the extension's commands */
@@ -28,6 +34,8 @@ declare namespace Preferences {
   export type List = ExtensionPreferences & {}
   /** Preferences accessible in the `create` command */
   export type Create = ExtensionPreferences & {}
+  /** Preferences accessible in the `stop-clocking` command */
+  export type StopClocking = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
@@ -38,5 +46,7 @@ declare namespace Arguments {
   /** your title */
   "title": string
 }
+  /** Arguments passed to the `stop-clocking` command */
+  export type StopClocking = {}
 }
 

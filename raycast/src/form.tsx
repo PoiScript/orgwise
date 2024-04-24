@@ -29,6 +29,7 @@ export const TaskForm: React.FC<{
       setTitleError(undefined);
     }
   }
+
   return (
     <Form
       actions={

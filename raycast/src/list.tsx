@@ -3,6 +3,7 @@ import {
   ActionPanel,
   Color,
   Icon,
+  LaunchProps,
   List,
   Toast,
   showToast,
@@ -19,6 +20,7 @@ import {
   formatDuration,
 } from "date-fns";
 import { atom, useAtomValue, useSetAtom } from "jotai";
+import { useHydrateAtoms } from "jotai/utils";
 import React, { useEffect, useState } from "react";
 import useSWR, { SWRConfig, mutate } from "swr";
 
@@ -26,9 +28,16 @@ import type { SearchResult } from "../../web/src/atom";
 import { backendAtom, orgPrioritiesAtom, orgTagsAtom } from "./atom";
 import { TaskForm } from "./form";
 
-const showDetailAtom = atom(false);
+const showDetailAtom = atom<"no" | "metadata-only" | "all">("no");
 
-export default function Command() {
+export default function Command(props: LaunchProps) {
+  useHydrateAtoms([
+    [
+      showDetailAtom,
+      props.launchContext?.selectedItemId ? "no" : "metadata-only",
+    ],
+  ]);
+
   const backend = useAtomValue(backendAtom);
 
   return (
@@ -38,7 +47,7 @@ export default function Command() {
           backend.executeCommand(command, argument),
       }}
     >
-      <TaskList />
+      <TaskList selectedItemId={props.launchContext?.selectedItemId} />
     </SWRConfig>
   );
 }
@@ -49,14 +58,17 @@ export function formatMinutes(minutes: number) {
   return `${hh.toString().padStart(2, "0")}:${mm.toString().padStart(2, "0")}`;
 }
 
-const TaskList: React.FC = () => {
+const TaskList: React.FC<{ selectedItemId?: string }> = ({
+  selectedItemId,
+}) => {
   const { data = [], isLoading } = useSWR<SearchResult[]>("headline-search");
 
   const isShowingDetail = useAtomValue(showDetailAtom);
 
   return (
     <List
-      isShowingDetail={isShowingDetail}
+      selectedItemId={isLoading ? undefined : selectedItemId}
+      isShowingDetail={isShowingDetail !== "no"}
       isLoading={isLoading}
       searchBarAccessory={<GroupBy />}
     >
@@ -143,6 +155,7 @@ const TaskItem: React.FC<{ item: SearchResult }> = ({ item }) => {
 
   return (
     <List.Item
+      id={item.url + "#" + item.line}
       title={item.title}
       icon={
         isDone
@@ -173,140 +186,152 @@ const TaskItem: React.FC<{ item: SearchResult }> = ({ item }) => {
 const TaskItemDetail: React.FC<{
   item: SearchResult;
   offset: number | null;
-}> = ({ item, offset }) => (
-  <List.Item.Detail
-    metadata={
-      <List.Item.Detail.Metadata>
-        <List.Item.Detail.Metadata.Label title="Title" text={item.title} />
+}> = ({ item, offset }) => {
+  const showDetail = useAtomValue(showDetailAtom);
 
-        <List.Item.Detail.Metadata.Label title="Section" text={item.section} />
+  return (
+    <List.Item.Detail
+      markdown={
+        showDetail === "all"
+          ? `# ${item.title}${item.section ? "\n```\n" + item.section + "\n```\n" : ""}`
+          : undefined
+      }
+      metadata={
+        <List.Item.Detail.Metadata>
+          <List.Item.Detail.Metadata.Label title="Title" text={item.title} />
 
-        <List.Item.Detail.Metadata.Separator />
-
-        {item.keyword ? (
-          <List.Item.Detail.Metadata.TagList title="Status">
-            <List.Item.Detail.Metadata.TagList.Item
-              text={item.keyword.value}
-              color={
-                item.keyword.type === "DONE" ? Color.Green : Color.PrimaryText
-              }
-            />
-          </List.Item.Detail.Metadata.TagList>
-        ) : (
           <List.Item.Detail.Metadata.Label
-            title="Status"
-            text={{ value: "(no set)", color: Color.SecondaryText }}
+            title="Section"
+            text={item.section}
           />
-        )}
 
-        {item.priority ? (
-          <List.Item.Detail.Metadata.TagList title="Priority">
-            <List.Item.Detail.Metadata.TagList.Item
-              icon={Icon.Flag}
-              text={item.priority}
-              color={Color.Magenta}
-            />
-          </List.Item.Detail.Metadata.TagList>
-        ) : (
-          <List.Item.Detail.Metadata.Label
-            title="Priority"
-            text={{ value: "(no set)", color: Color.SecondaryText }}
-          />
-        )}
+          <List.Item.Detail.Metadata.Separator />
 
-        {item.tags.length > 0 ? (
-          <List.Item.Detail.Metadata.TagList title="Tags">
-            {item.tags.map((tag) => (
-              <List.Item.Detail.Metadata.TagList.Item key={tag} text={tag} />
-            ))}
-          </List.Item.Detail.Metadata.TagList>
-        ) : (
-          <List.Item.Detail.Metadata.Label
-            title="Tags"
-            text={{ value: "(no set)", color: Color.SecondaryText }}
-          />
-        )}
-
-        <List.Item.Detail.Metadata.Separator />
-
-        <List.Item.Detail.Metadata.Label
-          title="Scheduled"
-          text={
-            item.planning.scheduled
-              ? {
-                  value: formatDetailDate(item.planning.scheduled),
-                  color: Color.PrimaryText,
+          {item.keyword ? (
+            <List.Item.Detail.Metadata.TagList title="Status">
+              <List.Item.Detail.Metadata.TagList.Item
+                text={item.keyword.value}
+                color={
+                  item.keyword.type === "DONE" ? Color.Green : Color.PrimaryText
                 }
-              : { value: "(no set)", color: Color.SecondaryText }
-          }
-        />
-
-        <List.Item.Detail.Metadata.Label
-          title="Deadline"
-          text={
-            item.planning.deadline
-              ? {
-                  value: formatDetailDate(item.planning.deadline),
-                  color: Color.PrimaryText,
-                }
-              : { value: "(no set)", color: Color.SecondaryText }
-          }
-        />
-
-        <List.Item.Detail.Metadata.Label
-          title="Closed"
-          text={
-            item.planning.closed
-              ? {
-                  value: formatDetailDate(item.planning.closed),
-                  color: Color.PrimaryText,
-                }
-              : { value: "(no set)", color: Color.SecondaryText }
-          }
-        />
-
-        <List.Item.Detail.Metadata.Separator />
-
-        {item.clocking.total_minutes > 0 ? (
-          <List.Item.Detail.Metadata.TagList title="Sum">
-            <List.Item.Detail.Metadata.TagList.Item
-              icon={Icon.Stopwatch}
-              text={item.clocking.total_minutes + ` minutes`}
-              color={Color.Yellow}
+              />
+            </List.Item.Detail.Metadata.TagList>
+          ) : (
+            <List.Item.Detail.Metadata.Label
+              title="Status"
+              text={{ value: "(no set)", color: Color.SecondaryText }}
             />
-          </List.Item.Detail.Metadata.TagList>
-        ) : (
-          <List.Item.Detail.Metadata.Label
-            title="Sum"
-            text={{ value: "(no start)", color: Color.SecondaryText }}
-          />
-        )}
+          )}
 
-        {typeof offset === "number" ? (
-          <List.Item.Detail.Metadata.TagList title="Clock">
-            <List.Item.Detail.Metadata.TagList.Item
-              icon={Icon.Play}
-              text={formatMinutes(offset)}
-              color={Color.Orange}
+          {item.priority ? (
+            <List.Item.Detail.Metadata.TagList title="Priority">
+              <List.Item.Detail.Metadata.TagList.Item
+                icon={Icon.Flag}
+                text={item.priority}
+                color={Color.Magenta}
+              />
+            </List.Item.Detail.Metadata.TagList>
+          ) : (
+            <List.Item.Detail.Metadata.Label
+              title="Priority"
+              text={{ value: "(no set)", color: Color.SecondaryText }}
             />
-          </List.Item.Detail.Metadata.TagList>
-        ) : (
+          )}
+
+          {item.tags.length > 0 ? (
+            <List.Item.Detail.Metadata.TagList title="Tags">
+              {item.tags.map((tag) => (
+                <List.Item.Detail.Metadata.TagList.Item key={tag} text={tag} />
+              ))}
+            </List.Item.Detail.Metadata.TagList>
+          ) : (
+            <List.Item.Detail.Metadata.Label
+              title="Tags"
+              text={{ value: "(no set)", color: Color.SecondaryText }}
+            />
+          )}
+
+          <List.Item.Detail.Metadata.Separator />
+
           <List.Item.Detail.Metadata.Label
-            title="Clock"
-            text={{ value: "(no start)", color: Color.SecondaryText }}
+            title="Scheduled"
+            text={
+              item.planning.scheduled
+                ? {
+                    value: formatDetailDate(item.planning.scheduled),
+                    color: Color.PrimaryText,
+                  }
+                : { value: "(no set)", color: Color.SecondaryText }
+            }
           />
-        )}
 
-        <List.Item.Detail.Metadata.Separator />
+          <List.Item.Detail.Metadata.Label
+            title="Deadline"
+            text={
+              item.planning.deadline
+                ? {
+                    value: formatDetailDate(item.planning.deadline),
+                    color: Color.PrimaryText,
+                  }
+                : { value: "(no set)", color: Color.SecondaryText }
+            }
+          />
 
-        <List.Item.Detail.Metadata.Label
-          title="ID"
-          text={item.url + ":" + item.line}
-        />
-      </List.Item.Detail.Metadata>
-    }
-  />
-);
+          <List.Item.Detail.Metadata.Label
+            title="Closed"
+            text={
+              item.planning.closed
+                ? {
+                    value: formatDetailDate(item.planning.closed),
+                    color: Color.PrimaryText,
+                  }
+                : { value: "(no set)", color: Color.SecondaryText }
+            }
+          />
+
+          <List.Item.Detail.Metadata.Separator />
+
+          {item.clocking.total_minutes > 0 ? (
+            <List.Item.Detail.Metadata.TagList title="Sum">
+              <List.Item.Detail.Metadata.TagList.Item
+                icon={Icon.Stopwatch}
+                text={item.clocking.total_minutes + ` minutes`}
+                color={Color.Yellow}
+              />
+            </List.Item.Detail.Metadata.TagList>
+          ) : (
+            <List.Item.Detail.Metadata.Label
+              title="Sum"
+              text={{ value: "(no start)", color: Color.SecondaryText }}
+            />
+          )}
+
+          {typeof offset === "number" ? (
+            <List.Item.Detail.Metadata.TagList title="Clock">
+              <List.Item.Detail.Metadata.TagList.Item
+                icon={Icon.Play}
+                text={formatMinutes(offset)}
+                color={Color.Orange}
+              />
+            </List.Item.Detail.Metadata.TagList>
+          ) : (
+            <List.Item.Detail.Metadata.Label
+              title="Clock"
+              text={{ value: "(no start)", color: Color.SecondaryText }}
+            />
+          )}
+
+          <List.Item.Detail.Metadata.Separator />
+
+          <List.Item.Detail.Metadata.Label
+            title="ID"
+            text={item.url + ":" + item.line}
+          />
+        </List.Item.Detail.Metadata>
+      }
+    />
+  );
+};
 
 const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
   const isDone = item.keyword?.type === "DONE";
@@ -323,7 +348,12 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
       <Action
         icon={Icon.AppWindowSidebarLeft}
         title="Toggle detail"
-        onAction={() => setShowingDetail((x) => !x)}
+        onAction={() => {
+          setShowingDetail((x) => {
+            const arr = ["no", "metadata-only", "all"] as const;
+            return arr[(arr.indexOf(x) + 1) % 3];
+          });
+        }}
       />
 
       <Action
@@ -483,7 +513,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
         title="Remove"
         style={Action.Style.Destructive}
         icon={Icon.Trash}
-        shortcut={{ modifiers: ["cmd"], key: "w" }}
+        shortcut={{ modifiers: ["cmd"], key: "x" }}
         onAction={() => {
           backend
             .executeCommand("headline-remove", {

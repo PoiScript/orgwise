@@ -20,16 +20,21 @@ pub struct HeadlineCreate {
     pub deadline: Option<NaiveDateTime>,
 }
 
+#[derive(Serialize)]
+pub struct Result {
+    pub url: Url,
+    pub line: usize,
+}
+
 impl Executable for HeadlineCreate {
     const NAME: &'static str = "headline-create";
 
-    type Result = bool;
+    type Result = Option<Result>;
 
-    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<bool> {
-        let Some(end) = backend
-            .documents()
-            .get_map(&self.url, |doc| doc.org.document().end())
-        else {
+    async fn execute<B: Backend>(self, backend: &B) -> anyhow::Result<Option<Result>> {
+        let Some((end, line_numbers)) = backend.documents().get_map(&self.url, |doc| {
+            (doc.org.document().end(), doc.line_numbers())
+        }) else {
             backend
                 .log_message(
                     MessageType::WARNING,
@@ -37,7 +42,7 @@ impl Executable for HeadlineCreate {
                 )
                 .await;
 
-            return Ok(false);
+            return Ok(None);
         };
 
         let mut s = "\n*".to_string();
@@ -95,9 +100,12 @@ impl Executable for HeadlineCreate {
         }
 
         backend
-            .apply_edit(self.url, s, TextRange::empty(end))
+            .apply_edit(self.url.clone(), s, TextRange::empty(end))
             .await?;
 
-        Ok(true)
+        Ok(Some(Result {
+            line: line_numbers + 1,
+            url: self.url,
+        }))
     }
 }
