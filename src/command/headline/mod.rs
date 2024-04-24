@@ -5,7 +5,7 @@ mod remove;
 mod search;
 mod update;
 
-pub use create::*;
+pub use create::HeadlineCreate;
 pub use duplicate::*;
 pub use generate_toc::*;
 pub use remove::*;

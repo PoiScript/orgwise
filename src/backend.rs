@@ -1,6 +1,5 @@
 use lsp_types::*;
-use orgize::{export::Traverser, Org};
-use orgize::{rowan::TextRange, ParseConfig};
+use orgize::{export::Traverser, rowan::TextRange, Org, ParseConfig};
 use std::iter::once;
 
 pub struct OrgDocument {
@@ -65,14 +64,14 @@ impl OrgDocument {
     pub fn offset_of(&self, position: Position) -> u32 {
         let line_start = self.line_starts[position.line as usize] as usize;
 
+        if position.character == 0 {
+            return line_start as u32;
+        }
+
         let line_end = match self.line_starts.get((position.line + 1) as usize) {
             Some(x) => *x as usize,
             None => self.text.len(),
         };
-
-        if position.character == 0 {
-            return line_start as u32;
-        }
 
         let line_str = &self.text.as_str()[line_start..line_end];
 
@@ -87,6 +86,10 @@ impl OrgDocument {
 
     pub fn traverse<H: Traverser>(&self, h: &mut H) {
         self.org.traverse(h);
+    }
+
+    pub fn line_numbers(&self) -> usize {
+        self.line_starts.len()
     }
 }
 
@@ -242,7 +245,6 @@ pub struct Documents {
 
 impl Documents {
     pub fn set_default_parse_config(&self, config: ParseConfig) {
-        // let x = std::cell::RefCell::new(ParseConfig::default());
         #[cfg(target_arch = "wasm32")]
         {
             self.config.replace(config);
@@ -251,17 +253,6 @@ impl Documents {
         {
             *self.config.write() = config;
         }
-    }
-
-    pub fn with<F>(&self, url: &Url, f: F)
-    where
-        F: FnOnce(&OrgDocument),
-    {
-        #[cfg(not(target_arch = "wasm32"))]
-        let map = &self.map;
-        #[cfg(target_arch = "wasm32")]
-        let map = self.map.borrow();
-        map.get(url).inspect(|doc| f(&doc));
     }
 
     pub fn get_map<F, T>(&self, url: &Url, f: F) -> Option<T>

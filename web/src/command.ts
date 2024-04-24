@@ -1,7 +1,19 @@
 declare const acquireVsCodeApi: () => any | undefined;
+declare const PLATFORM: string;
+
+import { invoke } from "@tauri-apps/api/core";
 
 const createExecuteCommand = () => {
-  if (typeof acquireVsCodeApi != "undefined") {
+  if (PLATFORM !== "web") {
+    return function executeCommand<T, A = any>(
+      command: string,
+      argument?: A
+    ): Promise<T> {
+      return invoke("execute_command", {
+        command: { command, argument: argument || {} },
+      });
+    };
+  } else if (typeof acquireVsCodeApi != "undefined") {
     const vscode = acquireVsCodeApi();
     let reqId = 0;
 

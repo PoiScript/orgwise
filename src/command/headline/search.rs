@@ -6,6 +6,7 @@ use orgize::{
     SyntaxKind,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::backend::Backend;
 
@@ -122,6 +123,12 @@ impl Executable for HeadlineSearch {
                             }),
                             _ => None,
                         }),
+
+                    properties: headline
+                        .properties()
+                        .into_iter()
+                        .flat_map(|p| p.iter().map(|(k, v)| (k.to_string(), v.to_string())))
+                        .collect(),
                 })
             }));
         });
@@ -143,6 +150,7 @@ pub struct Result {
     planning: Planning,
     section: Option<String>,
     clocking: Clocking,
+    properties: HashMap<String, String>,
 }
 
 #[derive(Serialize)]

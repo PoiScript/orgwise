@@ -1,13 +1,13 @@
 #![allow(async_fn_in_trait)]
 #![allow(dead_code)]
 
-mod backend;
+pub mod backend;
 #[cfg(feature = "tower")]
-mod cli;
-mod command;
-mod lsp;
+pub mod cli;
+pub mod command;
+pub mod lsp;
 #[cfg(test)]
-mod test;
-mod utils;
+pub mod test;
+pub mod utils;
 #[cfg(feature = "wasm")]
-mod wasm;
+pub mod wasm;

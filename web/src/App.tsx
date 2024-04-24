@@ -3,27 +3,13 @@ import React, { useEffect } from "react";
 import useSWR, { SWRConfig } from "swr";
 import executeCommand from "./command";
 
+import Clocking from "@/components/Clocking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 import { CalendarDay } from "./CalendarDay";
 import { Tasks } from "./Tasks";
 import { ViewMode, filtersAtom, viewModeAtom } from "./atom";
-import Clocking from "./components/Clocking";
-
-export type SearchResult = {
-  title: string;
-  url: string;
-  line: number;
-  level: number;
-  priority?: string;
-  tags: string[];
-  keyword?: string;
-  keyword_type?: string;
-  deadline?: string;
-  scheduled?: string;
-  closed?: string;
-};
 
 const App: React.FC<{}> = () => {
   const viewMode = useAtomValue(viewModeAtom);
@@ -50,7 +36,7 @@ const App: React.FC<{}> = () => {
   );
 };
 
-const SearchInput: React.FC = () => {
+export const SearchInput: React.FC = () => {
   const setFilter = useSetAtom(filtersAtom);
 
   useEffect(() => {
@@ -69,7 +55,7 @@ const SearchInput: React.FC = () => {
   );
 };
 
-const LoadingButton: React.FC = () => {
+export const LoadingButton: React.FC = () => {
   const { isLoading, mutate } = useSWR("headline-search");
 
   return (

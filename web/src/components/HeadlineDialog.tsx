@@ -5,9 +5,11 @@ import {
   Controller,
   ControllerRenderProps,
   FieldPath,
+  FieldValues,
   UseFormStateReturn,
   useForm,
 } from "react-hook-form";
+import { SWRConfiguration, mutate, useSWRConfig } from "swr";
 
 import { SearchResult } from "@/atom";
 import { Button } from "@/components/ui/button";
@@ -17,19 +19,17 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { mutate } from "swr";
-import executeCommand from "../command";
 
-export function DropdownMenuDemo({
-  item,
-  onClose,
-}: {
+export const HeadlineDialog: React.FC<{
   item: SearchResult;
   onClose: VoidFunction;
-}) {
+}> = ({ item, onClose }) => {
   const { control, register, handleSubmit } = useForm<SearchResult>({
     defaultValues: item,
   });
+
+  const { fetcher: executeCommand }: SWRConfiguration<any, any, any> =
+    useSWRConfig();
 
   return (
     <form
@@ -53,9 +53,8 @@ export function DropdownMenuDemo({
         </label>
         <input
           type="text"
-          name="title"
           id="title"
-          className="text-lg font-medium border-0 flex-1 outline-0 block"
+          className="text-lg font-medium border-0 flex-1 outline-0 block focus-visible:outline-0"
           placeholder="Title"
           {...register("title", { required: true })}
         />
@@ -66,14 +65,13 @@ export function DropdownMenuDemo({
       </label>
       <textarea
         rows={5}
-        name="section"
         id="section"
-        className="px-4 text-base border-0 w-full outline-0 block resize-none hover:resize"
+        className="px-4 text-base border-0 w-full outline-0 block focus-visible:outline-0 resize-none hover:resize"
         placeholder="Write section..."
         {...register("section")}
       />
 
-      <div className="px-4 py-2 flex items-center justify-end gap-x-2">
+      <div className="flex items-center gap-x-2 p-2 border-t-2">
         <ControlledDropdown
           control={control}
           name="keyword"
@@ -192,41 +190,8 @@ export function DropdownMenuDemo({
             </Button>
           )}
         />
-      </div>
 
-      <div className="p-2 border-t-2 flex justify-between items-center">
-        <div>
-          <Button
-            size="sm"
-            className="text-red-500"
-            variant="ghost"
-            type="button"
-            onClick={async () => {
-              await executeCommand("headline-remove", {
-                url: item.url,
-                line: item.line,
-              });
-              onClose();
-            }}
-          >
-            Delete
-          </Button>
-
-          <Button
-            size="sm"
-            variant="ghost"
-            type="button"
-            onClick={async () => {
-              await executeCommand("headline-duplicate", {
-                url: item.url,
-                line: item.line,
-              });
-              onClose();
-            }}
-          >
-            Duplicate
-          </Button>
-        </div>
+        <div className="flex-1"></div>
 
         <Button size="sm" variant="ghost" type="submit">
           Save
@@ -234,10 +199,12 @@ export function DropdownMenuDemo({
       </div>
     </form>
   );
-}
+};
+
+export default HeadlineDialog;
 
 function ControlledDropdown<
-  TFieldValues,
+  TFieldValues extends FieldValues,
   TName extends FieldPath<TFieldValues>,
 >({
   name,

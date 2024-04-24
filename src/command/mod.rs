@@ -10,7 +10,7 @@ use serde_json::Value;
 
 use crate::backend::Backend;
 
-pub(crate) trait Executable: DeserializeOwned {
+pub trait Executable: DeserializeOwned {
     const NAME: &'static str;
 
     const TITLE: Option<&'static str> = None;

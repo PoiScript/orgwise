@@ -1,4 +1,11 @@
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import clsx from "clsx";
+import { parse } from "date-fns";
 import { useAtom, useSetAtom } from "jotai/react";
 import {
   CheckCircle2,
@@ -11,17 +18,21 @@ import {
   Trash2,
 } from "lucide-react";
 import React from "react";
-import useSWR, { mutate } from "swr";
-
-import { DropdownMenuDemo } from "@/components/headline-dialog";
+import useSWR, { SWRConfiguration, mutate, useSWRConfig } from "swr";
+import { SearchResult, selectedAtom } from "@/atom";
+import { CountDown } from "@/components/Clocking";
+import HeadlineDialog from "@/components/HeadlineDialog";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { SearchResult, selectedAtom } from "./atom";
-import executeCommand from "./command";
+import { formatMinutes } from "@/lib/utils";
 
 export const Tasks: React.FC = () => {
-  const { data, isLoading, error } = useSWR<SearchResult[]>("headline-search");
+  const {
+    data = [],
+    isLoading,
+    error,
+  } = useSWR<SearchResult[]>("headline-search");
 
   const [selected, setSelected] = useAtom(selectedAtom);
 
@@ -40,28 +51,18 @@ export const Tasks: React.FC = () => {
         <DialogContent
           className={clsx("min-w-full sm:min-w-[600px] p-0 gap-0")}
         >
-          <DropdownMenuDemo
-            item={selected!}
-            onClose={() => setSelected(null)}
-          />
+          <HeadlineDialog item={selected!} onClose={() => setSelected(null)} />
         </DialogContent>
       </Dialog>
     </div>
   );
 };
 
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { parse } from "date-fns";
-import { CountDown } from "./components/Clocking";
-import { formatMinutes } from "./lib/utils";
-
 const ListItem: React.FC<{ item: SearchResult }> = ({ item }) => {
   const select = useSetAtom(selectedAtom);
+
+  const { fetcher: executeCommand }: SWRConfiguration<any, any, any> =
+    useSWRConfig();
 
   return (
     <ContextMenu>
@@ -75,7 +76,7 @@ const ListItem: React.FC<{ item: SearchResult }> = ({ item }) => {
             item.keyword.type === "TODO" ? (
               <Circle size={20} />
             ) : (
-              <CheckCircle2 size={20} />
+              <CheckCircle2 size={20} color="#529E4E" />
             )
           ) : (
             <CircleDashed size={20} />

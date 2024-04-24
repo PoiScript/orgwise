@@ -1,10 +1,10 @@
-import executeCommand from "@/command";
-import { formatMinutes } from "@/lib/utils";
 import * as Toast from "@radix-ui/react-toast";
 import { differenceInMinutes, isValid, parse } from "date-fns";
 import { Clock, PauseCircle } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import useSWR, { mutate } from "swr";
+import useSWR, { SWRConfiguration, mutate, useSWRConfig } from "swr";
+
+import { formatMinutes } from "@/lib/utils";
 
 type ClockStatus = {
   start: string;
@@ -19,6 +19,9 @@ const Clocking: React.FC = () => {
     isLoading,
     error,
   } = useSWR<{ running: ClockStatus }>("clocking-status");
+
+  const { fetcher: executeCommand }: SWRConfiguration<any, any, any> =
+    useSWRConfig();
 
   if (isLoading || error) return;
 
@@ -35,7 +38,7 @@ const Clocking: React.FC = () => {
       >
         <Clock size={18} />
 
-        {status.running && (
+        {status?.running && (
           <div className="text-xl font-medium">
             <CountDown
               start={parse(
@@ -50,8 +53,8 @@ const Clocking: React.FC = () => {
         <PauseCircle
           onClick={() =>
             executeCommand("clocking-stop", {
-              url: status.running.url!,
-              line: status.running.line!,
+              url: status!.running.url,
+              line: status!.running.line,
             }).then(() => {
               mutate("clocking-status");
               mutate("headline-search");

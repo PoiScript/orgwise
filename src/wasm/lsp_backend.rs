@@ -101,7 +101,7 @@ impl Backend for LspBackend {
         let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
 
         for (url, new_text, text_range) in items {
-            self.documents.with(&url, |doc| {
+            self.documents.get_map(&url, |doc| {
                 let edit = TextEdit {
                     new_text,
                     range: doc.range_of(text_range),
