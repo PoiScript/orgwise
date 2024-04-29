@@ -1,14 +1,19 @@
 // Node.js implementation for orgwise lsp server
 
+import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import {
   IPCMessageReader,
   IPCMessageWriter,
   createMessageConnection,
 } from "vscode-languageserver-protocol/node";
 import { URI } from "vscode-uri";
+
+const execAsync = promisify(exec);
 
 import { LspBackend, initSync } from "../../pkg/orgwise";
 
@@ -45,6 +50,13 @@ connection.onRequest("initialize", async (params) => {
 
       write: (url: string, content: string) =>
         writeFile(URI.parse(url).fsPath, content),
+
+      execute: async (executable: string, content: string) => {
+        const file = join(tmpdir(), ".orgwise");
+        await writeFile(file, content);
+        const output = await execAsync(`${executable} ${file}`);
+        return output.stdout;
+      },
     });
   }
 

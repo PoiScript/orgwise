@@ -139,6 +139,13 @@ impl ExecuteOptions {
     }
 
     pub async fn run<B: Backend>(&self, backend: &B) -> anyhow::Result<String> {
+        backend
+            .log_message(
+                MessageType::INFO,
+                format!("Executing src block with `{}`", self.executable),
+            )
+            .await;
+
         let output = backend.execute(&self.executable, &self.content).await?;
 
         let mut output = match self.format {

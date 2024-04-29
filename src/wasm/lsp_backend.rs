@@ -33,6 +33,13 @@ extern "C" {
 
     #[wasm_bindgen(method, js_name = "sendNotification")]
     pub async fn send_notification(this: &LspClient, method: &str, params: JsValue);
+
+    #[wasm_bindgen(method, catch)]
+    pub async fn execute(
+        this: &LspClient,
+        executable: &str,
+        content: &str,
+    ) -> Result<JsValue, JsValue>;
 }
 
 #[wasm_bindgen(js_name = "LspBackend")]
@@ -130,11 +137,13 @@ impl Backend for LspBackend {
         &self.documents
     }
 
-    // fn default_parse_config(&self) -> ParseConfig {
-    //     self.parse_config.clone()
-    // }
-
-    // fn set_default_parse_config(&self, config: ParseConfig) {}
+    async fn execute(&self, executable: &str, content: &str) -> anyhow::Result<String> {
+        self.client
+            .execute(executable, content)
+            .await
+            .map(|value| value.as_string().unwrap_or_default())
+            .map_err(|err| anyhow::anyhow!("JS Error: {err:?}"))
+    }
 }
 
 #[wasm_bindgen(js_class = "LspBackend")]

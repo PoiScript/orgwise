@@ -28,6 +28,18 @@ connection.onRequest("initialize", async (params) => {
       sendRequest: (method: string, params: any) => {
         return connection.sendRequest(method, params);
       },
+
+      execute: () => {
+        throw new Error("`execute` is not support in web extension");
+      },
+
+      readToString: () => {
+        throw new Error("`readToString` is not support in web extension");
+      },
+
+      write: () => {
+        throw new Error("`write` is not support in web extension");
+      },
     });
   }
 
