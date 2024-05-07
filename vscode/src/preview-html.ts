@@ -51,10 +51,8 @@ export default class PreviewHtml {
       {
         // Enable javascript in the webview
         enableScripts: true,
-
-        // And restrict the webview to only loading content from our extension's `media` directory.
         localResourceRoots: [
-          Uri.joinPath(extensionUri, "dist"),
+          Uri.joinPath(extensionUri, "media"),
           ...workspace.workspaceFolders.map((folder) => folder.uri),
         ],
       }
