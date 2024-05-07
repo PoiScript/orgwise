@@ -1,7 +1,7 @@
 use chrono::NaiveDateTime;
 use lsp_types::Url;
 use orgize::{
-    export::{from_fn_with_ctx, Container, Event},
+    export::{from_fn_with_ctx, Container, Event, HtmlExport, MarkdownExport},
     rowan::ast::AstNode,
     SyntaxKind,
 };
@@ -15,6 +15,10 @@ use crate::command::Executable;
 #[derive(Deserialize, Debug, Serialize)]
 pub struct HeadlineSearch {
     pub url: Option<Url>,
+    #[serde(default)]
+    pub markdown: bool,
+    #[serde(default)]
+    pub html: bool,
     pub from: Option<NaiveDateTime>,
     pub to: Option<NaiveDateTime>,
 }
@@ -63,6 +67,7 @@ impl Executable for HeadlineSearch {
 
                 results.push(Result {
                     title: headline.title_raw(),
+
                     url: url.clone(),
                     line: doc.line_of(headline.start().into()) + 1,
                     level: headline.level(),
@@ -74,6 +79,18 @@ impl Executable for HeadlineSearch {
                             .children()
                             .filter(|n| n.kind() != SyntaxKind::DRAWER)
                             .fold(String::new(), |acc, node| acc + &node.to_string())
+                    }),
+
+                    section_html: headline.section().filter(|_| self.html).map(|section| {
+                        let mut html = HtmlExport::default();
+                        html.render(section.syntax());
+                        html.finish()
+                    }),
+
+                    section_markdown: headline.section().filter(|_| self.markdown).map(|section| {
+                        let mut md = MarkdownExport::default();
+                        md.render(section.syntax());
+                        md.finish()
                     }),
 
                     planning: Planning {
@@ -149,6 +166,10 @@ pub struct Result {
     keyword: Option<Keyword>,
     planning: Planning,
     section: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    section_html: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    section_markdown: Option<String>,
     clocking: Clocking,
     properties: HashMap<String, String>,
 }

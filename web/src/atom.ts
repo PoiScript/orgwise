@@ -3,6 +3,8 @@ import { atom } from "jotai";
 export type SearchResult = {
   title: string;
   section?: string;
+  section_html?: string;
+  section_markdown?: string;
   url: string;
   line: number;
   level: number;

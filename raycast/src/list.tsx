@@ -20,7 +20,6 @@ import {
   formatDuration,
 } from "date-fns";
 import { atom, useAtomValue, useSetAtom } from "jotai";
-import { useHydrateAtoms } from "jotai/utils";
 import React, { useEffect, useState } from "react";
 import useSWR, { SWRConfig, mutate } from "swr";
 
@@ -28,23 +27,22 @@ import type { SearchResult } from "../../web/src/atom";
 import { backendAtom, orgPrioritiesAtom, orgTagsAtom } from "./atom";
 import { TaskForm } from "./form";
 
-const showDetailAtom = atom<"no" | "metadata-only" | "all">("no");
+const showDetailAtom = atom(false);
+const showMarkdownAtom = atom(false);
 
 export default function Command(props: LaunchProps) {
-  useHydrateAtoms([
-    [
-      showDetailAtom,
-      props.launchContext?.selectedItemId ? "no" : "metadata-only",
-    ],
-  ]);
-
   const backend = useAtomValue(backendAtom);
 
   return (
     <SWRConfig
       value={{
-        fetcher: (command, argument = {}) =>
-          backend.executeCommand(command, argument),
+        fetcher: (args) => {
+          if (Array.isArray(args)) {
+            return backend.executeCommand(args[0], args[1] || {});
+          } else {
+            return backend.executeCommand(args, {});
+          }
+        },
       }}
     >
       <TaskList selectedItemId={props.launchContext?.selectedItemId} />
@@ -61,14 +59,17 @@ export function formatMinutes(minutes: number) {
 const TaskList: React.FC<{ selectedItemId?: string }> = ({
   selectedItemId,
 }) => {
-  const { data = [], isLoading } = useSWR<SearchResult[]>("headline-search");
+  const { data = [], isLoading } = useSWR<SearchResult[]>([
+    "headline-search",
+    { markdown: true },
+  ]);
 
   const isShowingDetail = useAtomValue(showDetailAtom);
 
   return (
     <List
       selectedItemId={isLoading ? undefined : selectedItemId}
-      isShowingDetail={isShowingDetail !== "no"}
+      isShowingDetail={isShowingDetail}
       isLoading={isLoading}
       searchBarAccessory={<GroupBy />}
     >
@@ -187,14 +188,12 @@ const TaskItemDetail: React.FC<{
   item: SearchResult;
   offset: number | null;
 }> = ({ item, offset }) => {
-  const showDetail = useAtomValue(showDetailAtom);
+  const showMarkdown = useAtomValue(showMarkdownAtom);
 
   return (
     <List.Item.Detail
       markdown={
-        showDetail === "all"
-          ? `# ${item.title}${item.section ? "\n```\n" + item.section + "\n```\n" : ""}`
-          : undefined
+        showMarkdown ? `# ${item.title}\n${item.section_markdown || ""}` : null
       }
       metadata={
         <List.Item.Detail.Metadata>
@@ -338,6 +337,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
   const isRunning = !!item.clocking.start;
 
   const setShowingDetail = useSetAtom(showDetailAtom);
+  const setShowingMarkdown = useSetAtom(showMarkdownAtom);
   const backend = useAtomValue(backendAtom);
   const { pop } = useNavigation();
   const priorities = useAtomValue(orgPrioritiesAtom);
@@ -348,12 +348,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
       <Action
         icon={Icon.AppWindowSidebarLeft}
         title="Toggle detail"
-        onAction={() => {
-          setShowingDetail((x) => {
-            const arr = ["no", "metadata-only", "all"] as const;
-            return arr[(arr.indexOf(x) + 1) % 3];
-          });
-        }}
+        onAction={() => setShowingDetail((x) => !x)}
       />
 
       <Action
@@ -371,7 +366,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
               line: item.line,
               keyword: isDone ? "TODO" : "DONE",
             })
-            .then(() => mutate("headline-search"))
+            .then(() => mutate(["headline-search", { markdown: true }]))
             .then(() => showToast({ title: "Item status changed" }));
         }}
       />
@@ -392,7 +387,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
                   line: item.line,
                   priority: p,
                 })
-                .then(() => mutate("headline-search"))
+                .then(() => mutate(["headline-search", { markdown: true }]))
                 .then(() => showToast({ title: "Item priority changed" }));
             }}
           />
@@ -420,7 +415,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
                       ? item.tags.filter((x) => x != tag)
                       : [...item.tags, tag],
                   })
-                  .then(() => mutate("headline-search"))
+                  .then(() => mutate(["headline-search", { markdown: true }]))
                   .then(() => showToast({ title: "Item tags changed" }));
               }}
             />
@@ -441,7 +436,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
                 ? lightFormat(date, "yyyy-MM-dd'T'HH:mm:ss")
                 : null,
             })
-            .then(() => mutate("headline-search"))
+            .then(() => mutate(["headline-search", { markdown: true }]))
             .then(() => showToast({ title: "Item schedule date changed" }));
         }}
       />
@@ -456,7 +451,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
               url: item.url,
               line: item.line,
             })
-            .then(() => mutate("headline-search"))
+            .then(() => mutate(["headline-search", { markdown: true }]))
             .then(() =>
               showToast({
                 title: isRunning ? "Item clock in" : "Item clock out",
@@ -480,13 +475,20 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
                   ...values,
                 })
                 .then(() => {
-                  mutate("headline-search");
+                  mutate(["headline-search", { markdown: true }]);
                   showToast({ title: "TODO item updated" });
                   pop();
                 });
             }}
           />
         }
+      />
+
+      <Action
+        title="Toggle markdown"
+        icon={Icon.AppWindow}
+        shortcut={{ modifiers: ["cmd"], key: "m" }}
+        onAction={() => setShowingMarkdown((x) => !x)}
       />
 
       <Action
@@ -499,7 +501,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
               url: item.url,
               line: item.line,
             })
-            .then(() => mutate("headline-search"))
+            .then(() => mutate(["headline-search", { markdown: true }]))
             .then(() =>
               showToast({
                 title: "Item duplicated",
@@ -520,7 +522,7 @@ const TaskActionPanel: React.FC<{ item: SearchResult }> = ({ item }) => {
               url: item.url,
               line: item.line,
             })
-            .then(() => mutate("headline-search"))
+            .then(() => mutate(["headline-search", { markdown: true }]))
             .then(() =>
               showToast({
                 title: "Item removed",
