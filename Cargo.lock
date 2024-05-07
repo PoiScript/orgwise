@@ -2327,8 +2327,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 [[package]]
 name = "orgize"
 version = "0.10.0-alpha.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "009f43f97cf8a1daf55baa7f0cf8a125cfea13cfbc30f492991203dfdfe39c62"
+source = "git+https://github.com/PoiScript/orgize?branch=v0.10#dc8d70c96e2bc56ed37a006f49a962c0fad1c96c"
 dependencies = [
  "bytecount",
  "cfg-if",

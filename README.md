@@ -2,15 +2,21 @@
 
 ![Overview of orgwise](./vscode/images/overview.png)
 
-Orgwise is a(n)
+Orgwise is an org-mode toolkit builtin upon [`orgize`].
 
-- language server / vscode extension
-- command line utility
-- api server / web interface
+Currently, it includes:
 
-for org-mode files, builtin with [`orgize`].
+- Language server
+- VSCode extension
+- Command line utility
+- API Server
+- Web Interface
+- [Raycast] extension
+- [Tauri] application
 
 [`orgize`]: https://crates.io/crates/orgize
+[raycast]: https://www.raycast.com/
+[Tauri]: https://tauri.app/
 
 ## Development
 
