@@ -3,7 +3,7 @@
 use lsp_types::*;
 use orgize::{
     export::{from_fn_with_ctx, Container, Event},
-    rowan::{ast::AstNode, TextSize},
+    rowan::ast::AstNode,
     SyntaxKind,
 };
 
@@ -40,7 +40,7 @@ pub fn document_symbol<B: Backend>(
                         .collect::<String>();
 
                     let start = headline.start();
-                    let end = headline.end() - TextSize::new(1);
+                    let end = headline.end();
 
                     stack.push(s.len());
                     s.push(DocumentSymbol {
